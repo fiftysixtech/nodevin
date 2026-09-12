@@ -76,6 +76,10 @@ func deleteNetworkDirectory(baseDir, networkName string) {
 		return
 	}
 
+	if utils.CheckIfTestnetOrTestnetNetworkFlag() {
+		containerName = containerName + "-testnet"
+	}
+
 	networkDir := filepath.Join(baseDir, containerName)
 	if _, err := os.Stat(networkDir); os.IsNotExist(err) {
 		logger.LogError("Data for network not found: " + networkDir)
