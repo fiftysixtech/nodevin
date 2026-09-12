@@ -63,9 +63,13 @@ var requestCmd = &cobra.Command{
 
 		url := fmt.Sprintf("%s:%d", endpoint, port)
 
-		if _, err := makeRequest(network, url, method, params, headers, user, pass); err != nil {
+		response, err := makeRequest(network, url, method, params, headers, user, pass)
+		if err != nil {
 			logger.LogError("Failed to make request: " + err.Error())
+			return
 		}
+
+		fmt.Println(string(response))
 	},
 }
 
