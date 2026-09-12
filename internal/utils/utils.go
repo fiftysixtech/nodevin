@@ -161,6 +161,26 @@ var networkInfoMap = map[string]NetworkInfo{
 		StartMessage:     "\"Testing is the lifeblood of innovation and security.\"",
 		CommandSupported: false,
 	},
+	"ethereum-classic": {
+		ContainerName:    "core-geth",
+		DockerHubImage:   "core-geth",
+		RPCPort:          8545,
+		SnapshotCID:      "",
+		DataSize:         0,
+		SnapshotSize:     0,
+		StartMessage:     "\"Code is Law.\" -- Ethereum Classic Community",
+		CommandSupported: true,
+	},
+	"ethereum-classic-testnet": {
+		ContainerName:    "core-geth-testnet",
+		DockerHubImage:   "core-geth",
+		RPCPort:          8546,
+		SnapshotCID:      "",
+		DataSize:         0,
+		SnapshotSize:     0,
+		StartMessage:     "\"Testing is the lifeblood of innovation and security.\"",
+		CommandSupported: false,
+	},
 }
 
 func NetworkContainerMap() map[string]string {

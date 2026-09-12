@@ -29,6 +29,7 @@ import (
 	"github.com/fiftysixcrypto/nodevin/pkg/docker/compose"
 	"github.com/fiftysixcrypto/nodevin/pkg/nodes/bitcoin"
 	"github.com/fiftysixcrypto/nodevin/pkg/nodes/dogecoin"
+	ethereum_classic "github.com/fiftysixcrypto/nodevin/pkg/nodes/ethereum-classic"
 	"github.com/fiftysixcrypto/nodevin/pkg/nodes/ipfs"
 	"github.com/fiftysixcrypto/nodevin/pkg/nodes/litecoin"
 	"github.com/fiftysixcrypto/nodevin/pkg/nodes/ord"
@@ -208,6 +209,8 @@ func createComposeFileForNetwork(network string, cwd string) (string, error) {
 		return ipfs.CreateKuboComposeFile(cwd)
 	case "dogecoin":
 		return dogecoin.CreateDogecoinComposeFile(cwd)
+	case "ethereum-classic":
+		return ethereum_classic.CreateEthereumClassicComposeFile(cwd)
 	default:
 		return "", fmt.Errorf("unsupported network: %s", network)
 	}
