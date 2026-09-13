@@ -6,11 +6,11 @@ This guide will walk you through the steps of setting up **Nodevin** on your Win
 
 ### 1. Download the Nodevin Package
 
-First, download the latest version of **nodevin-windows.zip** from [here](https://github.com/fiftysixcrypto/nodevin/releases).
+First, download the latest Windows release (**nodevin-windows-amd64-\<version\>.zip**, or **nodevin-windows-arm64-\<version\>.zip** for ARM64 devices) from [here](https://github.com/fiftysixtech/nodevin/releases).
 
 ### 2. Extract the Package
 
-Once downloaded, extract the contents of `nodevin-windows.zip` to a directory of your choice.
+Once downloaded, extract the contents of the zip file to a directory of your choice.
 
 ### 3. Open Command Prompt
 
@@ -95,4 +95,4 @@ Once Docker installation is complete, **Nodevin** should be ready to go. To ensu
 nodevin.exe init
 ```
 
-If the output says "You're all set", then Docker and Nodevin are correctly installed, and you're ready to start using Nodevin!
+If the output ends with "It's time to start your own Bitcoin node. Run `nodevin start bitcoin` to get started.", then Docker and Nodevin are correctly installed, and you're ready to start using Nodevin!

@@ -20,7 +20,7 @@ Nodevin is a **Command-Line Interface (CLI) tool**. This means it doesn't have a
 The `nodevin init` command can help you get set up and test system requirements.
 
 2. **Install Nodevin**
-   - Download the latest version from the [Nodevin GitHub Releases](https://github.com/fiftysixcrypto/nodevin/releases) or the [Nodevin Website](https://nodevin.xyz).
+   - Download the latest version from the [Nodevin GitHub Releases](https://github.com/fiftysixtech/nodevin/releases) or the [Nodevin Website](https://nodevin.xyz).
    - Ensure Docker and Docker Compose are installed (you can test this with `nodevin init`).
 
 3. **Start a Blockchain Node**
