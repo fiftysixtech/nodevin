@@ -1,6 +1,6 @@
 # Nodevin
 
-Nodevin allows anyone to run blockchain nodes effortlessly. It simplifies the process of setting up and managing nodes for various blockchains, ensuring they are always up-to-date with the latest software versions. With Nodevin, you can run nodes for Bitcoin, Litecoin, and IPFS with ease.
+Nodevin allows anyone to run blockchain nodes effortlessly. It simplifies the process of setting up and managing nodes for various blockchains, ensuring they are always up-to-date with the latest software versions. With Nodevin, you can run nodes for Bitcoin, Litecoin, Dogecoin, Ethereum Classic, and IPFS with ease.
 
 Our goal is to facilitate blockchain node standup and maintenance for every chain in the world.
 
@@ -19,7 +19,7 @@ Stand up a blockchain node in three steps.
 
 1. **Download Nodevin:**
 
-Download the latest version of Nodevin from the [releases page](https://github.com/fiftysixcrypto/nodevin/releases).
+Download the latest version of Nodevin from the [releases page](https://github.com/fiftysixtech/nodevin/releases).
 
 2. **Initialize Nodevin and Docker:**
 
@@ -95,7 +95,7 @@ Adding your blockchain data to Nodevin requires a small one-time grant. For more
 
 ### Nodevin Docker Images
 
-Nodevin pulls images by default from [Docker Hub](https://hub.docker.com/u/fiftysix), with code located [here](https://github.com/fiftysixcrypto/node-images). The node image respository contains helpful resources including blockchain requirements and synchronization times, Docker installation steps, Docker compose files with documentation, and more.
+Nodevin pulls images by default from [Docker Hub](https://hub.docker.com/u/fiftysix), with code located [here](https://github.com/fiftysixtech/node-images). The node image respository contains helpful resources including blockchain requirements and synchronization times, Docker installation steps, Docker compose files with documentation, and more.
 
 ## Contributing
 

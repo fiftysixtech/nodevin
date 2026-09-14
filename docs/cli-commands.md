@@ -11,15 +11,19 @@ Nodevin is a command-line interface (CLI) that simplifies the setup, management,
 ### Getting Started
 - [nodevin init](#nodevin-init)
 - [nodevin list](#nodevin-list)
+- [nodevin version](#nodevin-version)
 
 ### Running Nodes
 - [nodevin start](#nodevin-start)
 - [nodevin stop](#nodevin-stop)
+- [nodevin update](#nodevin-update)
 
 ### Interacting with Nodes
 - [nodevin shell](#nodevin-shell)
 - [nodevin logs](#nodevin-logs)
 - [nodevin request](#nodevin-request)
+- [nodevin info](#nodevin-info)
+- [nodevin view](#nodevin-view)
 
 ### Data Cleanup
 - [nodevin delete](#nodevin-delete)
@@ -42,7 +46,14 @@ Nodevin is a command-line interface (CLI) that simplifies the setup, management,
 ### `nodevin list`
 
 - **Description**: Lists all networks compatible with Nodevin.
-- **Simple Example**: `nodevin init`
+- **Simple Example**: `nodevin list`
+
+---
+
+### `nodevin version`
+
+- **Description**: Prints the installed Nodevin version.
+- **Simple Example**: `nodevin version`
 
 ---
 
@@ -58,11 +69,95 @@ Nodevin is a command-line interface (CLI) that simplifies the setup, management,
 *Default*: `false`
 *Usage*: `--ord`
 
+- **`--ord-image`**
+
+*Description*: Docker image to use for `ord`.
+*Default*: `fiftysix/ord`
+*Usage*: `--ord-image=<docker-image>`
+
+- **`--ord-version`**
+
+*Description*: Version of the Docker image to use for `ord`.
+*Default*: `latest`
+*Usage*: `--ord-version=<tag>`
+
 - **`--ord-litecoin`**
 
 *Description*: Runs ordinal software `ord` alongside the Litecoin node.
 *Default*: `false`
 *Usage*: `--ord-litecoin`
+
+- **`--ord-litecoin-image`**
+
+*Description*: Docker image to use for `ord-litecoin`.
+*Default*: `fiftysix/ord-litecoin`
+*Usage*: `--ord-litecoin-image=<docker-image>`
+
+- **`--ord-litecoin-version`**
+
+*Description*: Version of the Docker image to use for `ord-litecoin`.
+*Default*: `latest`
+*Usage*: `--ord-litecoin-version=<tag>`
+
+- **`--ipfs-cluster`**
+
+*Description*: Runs `ipfs-cluster` software alongside the IPFS node.
+*Default*: `false`
+*Usage*: `--ipfs-cluster`
+
+- **`--ipfs-cluster-image`**
+
+*Description*: Docker image to use for `ipfs-cluster`.
+*Default*: `fiftysix/ipfs-cluster`
+*Usage*: `--ipfs-cluster-image=<docker-image>`
+
+- **`--ipfs-cluster-version`**
+
+*Description*: Version of the Docker image to use for `ipfs-cluster`.
+*Default*: `latest`
+*Usage*: `--ipfs-cluster-version=<tag>`
+
+- **`--ipfs-cluster-peername`**
+
+*Description*: (ipfs-cluster only) The peername(s) to attach to.
+*Usage*: `--ipfs-cluster-peername=<name>`
+*Example*: `--ipfs-cluster-peername=cluster-peer-1`
+
+- **`--ipfs-cluster-secret`**
+
+*Description*: (ipfs-cluster only) The cluster secret required for connection.
+*Usage*: `--ipfs-cluster-secret=<secret>`
+
+- **`--ipfs-cluster-bootstrap`**
+
+*Description*: (ipfs-cluster only) The bootstrap node address.
+*Usage*: `--ipfs-cluster-bootstrap=<multiaddr>`
+*Example*: `--ipfs-cluster-bootstrap=/ip4/172.20.0.2/tcp/4001/p2p/12D3KooWHUZ36WvuUBmz5aFLJ9PoNKrUJRMSA22i98BkoAaQPRzi`
+
+- **`--rpc-user`**
+
+*Description*: Username passed in via command for JSON RPC.
+*Default*: `user`
+*Usage*: `--rpc-user=<username>`
+
+- **`--rpc-pass`**
+
+*Description*: Password passed in via command for JSON RPC.
+*Default*: `fiftysix`
+*Usage*: `--rpc-pass=<password>`
+
+- **`--cookie-auth`**
+
+*Description*: Use authentication directly with the node's cookie file instead of `--rpc-user`/`--rpc-pass`.
+*Default*: `false`
+*Usage*: `--cookie-auth`
+
+- **`--restart`**
+
+*Description*: Docker restart policy for the container.
+*Default*: `no`
+*Usage*: `--restart=<policy>`
+*Example*: `--restart=always`
 
 - **`--command`**
 
@@ -214,6 +309,25 @@ nodevin start bitcoin \
 
 ---
 
+### `nodevin update`
+
+- **Description**: Checks for and applies updates to the Nodevin binary itself, or updates the Docker images for running nodes.
+- **Simple Example**: `nodevin update`
+
+#### Options:
+
+- **`update`**
+
+*Description*: Checks for and applies a Nodevin software update.
+*Usage*: `nodevin update`
+
+- **`update docker`**
+
+*Description*: Checks for and applies updates to the Docker images used by running nodes.
+*Usage*: `nodevin update docker`
+
+---
+
 ### `nodevin shell`
 
 - **Description**: Opens an interactive shell in the running container for the specified blockchain network.
@@ -314,6 +428,27 @@ nodevin request bitcoin --method getblockheader --params '["00000000c937983704a7
 
 ---
 
+### `nodevin info`
+
+- **Description**: Displays information about currently running blockchain nodes, including version, status, ports, peer count, and latest block (for supported chain software).
+- **Simple Example**: `nodevin info`
+
+#### Options:
+
+- **`nodevin info <network>`**
+
+*Description*: Filters the output to a specific network.
+*Usage*: `nodevin info bitcoin`
+
+---
+
+### `nodevin view`
+
+- **Description**: Displays a fun, artistic ASCII-art view of your currently running Nodevin nodes and their stats.
+- **Simple Example**: `nodevin view`
+
+---
+
 ### `nodevin delete`
 
 - **Description**: Deletes local blockchain data associated with a specific network.
@@ -325,6 +460,11 @@ nodevin request bitcoin --method getblockheader --params '["00000000c937983704a7
 
 *Description*: Deletes nodevin data for a network.
 *Usage*: `nodevin delete bitcoin`
+
+- **`delete <network> --testnet`**
+
+*Description*: Deletes nodevin data for a network's testnet.
+*Usage*: `nodevin delete bitcoin --testnet`
 
 - **`delete all`**
 
