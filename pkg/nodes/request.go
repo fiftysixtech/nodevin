@@ -80,8 +80,17 @@ func printUsageAndExample() {
 }
 
 func makeRequest(network, url, method, params, headers, user, pass string) ([]byte, error) {
+	// geth-family JSON-RPC servers (e.g. core-geth) strictly reject anything
+	// other than "jsonrpc":"2.0" with a -32600 "invalid request" error, while
+	// Bitcoin-derived daemons are lenient about the field and already work
+	// with "1.0" (the long-standing default here).
+	jsonrpcVersion := "1.0"
+	if isEthereumStyleRPC(network) {
+		jsonrpcVersion = "2.0"
+	}
+
 	jsonData := map[string]interface{}{
-		"jsonrpc": "1.0",
+		"jsonrpc": jsonrpcVersion,
 		"id":      "nodevin",
 		"method":  method,
 	}

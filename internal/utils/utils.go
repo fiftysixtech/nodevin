@@ -259,7 +259,7 @@ func GetSnapshotCIDByNetwork(network string) (string, bool) {
 }
 
 func IsSupportedExtendedInfoSoftware(software string) bool {
-	return software == "bitcoin-core" || software == "litecoin-core" || software == "dogecoin-core"
+	return software == "bitcoin-core" || software == "litecoin-core" || software == "dogecoin-core" || software == "core-geth"
 }
 
 // Expands a leading "~" or "~/" in path to the current user's home directory.
