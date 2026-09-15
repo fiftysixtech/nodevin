@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/fiftysixcrypto/nodevin/internal/logger"
 	"github.com/fiftysixcrypto/nodevin/internal/utils"
@@ -36,17 +35,6 @@ var deleteCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		// Get the nodevin data directory
 		nodevinDataDir, err := utils.GetNodevinDataDir()
-
-		// Check if the path starts with ~ and replace it with the home directory
-		if strings.HasPrefix(nodevinDataDir, "~") {
-			homeDir, err := os.UserHomeDir()
-			if err != nil {
-				logger.LogError("Data directory specified had '~', but home directory not found.")
-				return
-			}
-			nodevinDataDir = filepath.Join(homeDir, nodevinDataDir[1:])
-		}
-
 		if err != nil {
 			logger.LogError("Failed to find Nodevin data directory: " + err.Error())
 			return

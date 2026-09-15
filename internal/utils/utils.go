@@ -262,6 +262,28 @@ func IsSupportedExtendedInfoSoftware(software string) bool {
 	return software == "bitcoin-core" || software == "litecoin-core" || software == "dogecoin-core"
 }
 
+// Expands a leading "~" or "~/" in path to the current user's home directory.
+// filepath.Join and os.MkdirAll treat "~" as a literal directory name, not a
+// shell shortcut, so a value like "~/Desktop" must be expanded manually before
+// use or it silently creates a "~" directory relative to the current working
+// directory instead of resolving to the user's home.
+func ExpandHomeDir(path string) (string, error) {
+	if path != "~" && !strings.HasPrefix(path, "~/") {
+		return path, nil
+	}
+
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to expand '~' in path: %v", err)
+	}
+
+	if path == "~" {
+		return homeDir, nil
+	}
+
+	return filepath.Join(homeDir, path[2:]), nil
+}
+
 // Returns path to the user's nodevin data directory (~/.nodevin/data)
 func GetNodevinDataDir() (string, error) {
 	homeDir, err := os.UserHomeDir()
@@ -270,7 +292,10 @@ func GetNodevinDataDir() (string, error) {
 	}
 
 	if viper.IsSet("data-dir") {
-		homeDir = viper.GetString("data-dir")
+		homeDir, err = ExpandHomeDir(viper.GetString("data-dir"))
+		if err != nil {
+			return "", err
+		}
 	}
 
 	nodevinDataDir := filepath.Join(homeDir, ".nodevin", "data")
