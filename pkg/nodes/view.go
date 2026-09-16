@@ -107,6 +107,8 @@ func getNodevinName(network string) string {
 		return "Litevin"
 	case "dogecoin-core":
 		return "Dogevin"
+	case "core-geth":
+		return "Classicvin"
 	default:
 		return "Nodevin"
 	}
@@ -120,6 +122,8 @@ func getSoftwareNetworkName(softwareName string) string {
 		return "litecoin"
 	case "dogecoin-core":
 		return "dogecoin"
+	case "core-geth":
+		return "ethereum-classic"
 	default:
 		return ""
 	}

@@ -27,6 +27,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 
@@ -183,14 +184,50 @@ func getLatestBlocks(containerName string) (int, int) {
 	return localLatestBlock, globalLatestBlock
 }
 
+// isEthereumStyleRPC reports whether name (a container name like "core-geth",
+// or a network key like "ethereum-classic") runs a geth-family JSON-RPC API
+// (eth_blockNumber, net_peerCount, hex-encoded results, strict JSON-RPC 2.0)
+// rather than the Bitcoin-derived JSON-RPC API (getblockcount,
+// getconnectioncount, plain numeric results, lenient about the "jsonrpc"
+// field) used by bitcoin-core/litecoin-core/dogecoin-core.
+func isEthereumStyleRPC(name string) bool {
+	switch name {
+	case "core-geth", "core-geth-testnet", "ethereum-classic", "ethereum-classic-testnet":
+		return true
+	default:
+		return false
+	}
+}
+
+// parseRPCCount interprets an RPC result as an integer count. Bitcoin-style
+// daemons return a JSON number (float64 once unmarshaled); geth-style clients
+// return a hex-encoded string (e.g. "0x1a2b").
+func parseRPCCount(result interface{}) (int, bool) {
+	switch v := result.(type) {
+	case float64:
+		return int(v), true
+	case string:
+		count, err := strconv.ParseInt(strings.TrimPrefix(v, "0x"), 16, 64)
+		if err != nil {
+			return 0, false
+		}
+		return int(count), true
+	default:
+		return 0, false
+	}
+}
+
 func getLocalLatestBlock(containerName string) int {
 	url := getLocalEndpointByContainerName(containerName)
 	method := "getblockcount"
+	if isEthereumStyleRPC(containerName) {
+		method = "eth_blockNumber"
+	}
 	params := "[]"
 	user := viper.GetString("rpc-user")
 	pass := viper.GetString("rpc-pass")
 
-	response, err := makeRequest("", url, method, params, "", user, pass)
+	response, err := makeRequest(containerName, url, method, params, "", user, pass)
 	if err != nil {
 		//logger.LogError("Failed to get local latest block: " + err.Error())
 		return 0
@@ -207,17 +244,20 @@ func getLocalLatestBlock(containerName string) int {
 		return 0
 	}
 
-	blockCount, ok := rpcResponse.Result.(float64)
+	blockCount, ok := parseRPCCount(rpcResponse.Result)
 	if !ok {
 		//logger.LogError("Failed to parse block count")
 		return 0
 	}
 
-	return int(blockCount)
+	return blockCount
 }
 
 func getGlobalLatestBlock(containerName string) int {
 	globalFetchLink := getGlobalEndpointByContainerName(containerName)
+	if globalFetchLink == "" {
+		return 0
+	}
 
 	resp, err := http.Get(globalFetchLink)
 	if err != nil {
@@ -282,6 +322,10 @@ func getLocalEndpointByContainerName(containerName string) string {
 		url = "http://127.0.0.1:22555"
 	} else if containerName == "dogecoin-core-testnet" {
 		url = "http://127.0.0.1:44555"
+	} else if containerName == "core-geth" {
+		url = "http://127.0.0.1:8545"
+	} else if containerName == "core-geth-testnet" {
+		url = "http://127.0.0.1:8546"
 	}
 
 	return url
@@ -290,11 +334,14 @@ func getLocalEndpointByContainerName(containerName string) string {
 func getPeers(containerName string) int {
 	url := getLocalEndpointByContainerName(containerName)
 	method := "getconnectioncount"
+	if isEthereumStyleRPC(containerName) {
+		method = "net_peerCount"
+	}
 	params := "[]"
 	user := viper.GetString("rpc-user")
 	pass := viper.GetString("rpc-pass")
 
-	response, err := makeRequest("bitcoin", url, method, params, "", user, pass)
+	response, err := makeRequest(containerName, url, method, params, "", user, pass)
 	if err != nil {
 		//logger.LogError("Failed to get peer count: " + err.Error())
 		return 0
@@ -311,13 +358,13 @@ func getPeers(containerName string) int {
 		return 0
 	}
 
-	peerCount, ok := rpcResponse.Result.(float64)
+	peerCount, ok := parseRPCCount(rpcResponse.Result)
 	if !ok {
 		//logger.LogError("Failed to parse peer count")
 		return 0
 	}
 
-	return int(peerCount)
+	return peerCount
 }
 
 func displayNodeDirectoryInfo(networkFilter string) {
