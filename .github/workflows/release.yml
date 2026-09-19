@@ -10,6 +10,8 @@ jobs:
       # Checkout the repository
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       # Set up Go environment
       - name: Set up Go
@@ -31,8 +33,10 @@ jobs:
           else
             PREV_TAG=$(git rev-list --max-parents=0 HEAD)  # First commit
           fi
-          COMMITS=$(git log $PREV_TAG..HEAD --pretty=format:"%h %s")
-          echo "commits=$COMMITS" >> $GITHUB_ENV
+          echo "commits<<COMMITS_EOF" >> $GITHUB_ENV
+          git log $PREV_TAG..HEAD --pretty=format:"%h %s" >> $GITHUB_ENV
+          echo "" >> $GITHUB_ENV
+          echo "COMMITS_EOF" >> $GITHUB_ENV
 
       # Build and package the Linux binaries
       - name: Build and package Linux binaries
