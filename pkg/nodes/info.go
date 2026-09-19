@@ -84,14 +84,14 @@ func displayInfo(networkFilter string) {
 		return
 	}
 
-	fmt.Println("\n-- Running Nodes:\n")
+	fmt.Println("\n-- Running Nodes:")
 
 	// Parse the output
 	containers := strings.Split(string(output), "\n")
 	if len(containers) < 2 {
-		fmt.Println("No running blockchain nodes found.\n")
+		fmt.Println("No running blockchain nodes found.")
 		displayNodeDirectoryInfo(networkFilter)
-		fmt.Println("\n-- Helpful Commands:\n")
+		fmt.Println("\n-- Helpful Commands:")
 		fmt.Printf("%s start <network>\n", utils.GetNodevinExecutable())
 		fmt.Printf("%s start <network> --testnet\n", utils.GetNodevinExecutable())
 		fmt.Printf("%s stop <network>\n", utils.GetNodevinExecutable())
@@ -170,7 +170,7 @@ func displayInfo(networkFilter string) {
 
 	displayNodeDirectoryInfo(networkFilter)
 
-	fmt.Println("\n-- Helpful Commands:\n")
+	fmt.Println("\n-- Helpful Commands:")
 
 	fmt.Printf("%s stop <network>\n", utils.GetNodevinExecutable())
 	fmt.Printf("%s shell <network>\n", utils.GetNodevinExecutable())
@@ -368,7 +368,7 @@ func getPeers(containerName string) int {
 }
 
 func displayNodeDirectoryInfo(networkFilter string) {
-	fmt.Println("-- Blockchain Node Data:\n")
+	fmt.Println("-- Blockchain Node Data:")
 
 	// Get the nodevin data directory
 	nodevinDataDir, err := utils.GetNodevinDataDir()

@@ -93,6 +93,14 @@ func mergeConfigs(defaultConfig, overrideConfig NetworkConfig) NetworkConfig {
 			defaultConfig.VolumeDefs[k] = v
 		}
 	}
+	if len(overrideConfig.Environment) > 0 {
+		if defaultConfig.Environment == nil {
+			defaultConfig.Environment = make(map[string]string)
+		}
+		for k, v := range overrideConfig.Environment {
+			defaultConfig.Environment[k] = v
+		}
+	}
 	return defaultConfig
 }
 
@@ -112,7 +120,7 @@ func createExtraServices(extraServiceNames []string, extraServiceConfigs []Netwo
 		// Dynamically generate the sub-directory for this specific image within ~/.nodevin
 		err := os.MkdirAll(extraServiceConfigs[i].LocalPath, 0755)
 		if err != nil {
-			logger.LogError(fmt.Sprintf("failed to create image-specific directory: %w", err))
+			logger.LogError(fmt.Sprintf("failed to create image-specific directory: %v", err))
 			continue
 		}
 
@@ -173,6 +181,7 @@ func createExtraServices(extraServiceNames []string, extraServiceConfigs []Netwo
 			Ports:         finalConfig.Ports,
 			Volumes:       finalConfig.Volumes,
 			Networks:      finalConfig.Networks,
+			Environment:   finalConfig.Environment,
 		}
 
 		if isDeploySet(finalConfig.Deploy) {
@@ -357,6 +366,7 @@ func CreateComposeFile(nodeName string, config NetworkConfig, extraServiceNames 
 		Ports:         finalConfig.Ports,
 		Volumes:       finalConfig.Volumes,
 		Networks:      finalConfig.Networks,
+		Environment:   finalConfig.Environment,
 	}
 
 	// Initialize services map and volume labels

@@ -39,7 +39,7 @@ func runInit() {
 	fmt.Println("")
 
 	// inspection
-	fmt.Println("Nodevin will now inspect your system for docker and docker compose versions...\n")
+	fmt.Println("Nodevin will now inspect your system for docker and docker compose versions...")
 	if err := performInspection(); err != nil {
 		fmt.Println("")
 		logger.LogError("System inspection failed: " + err.Error())
