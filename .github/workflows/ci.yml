@@ -84,12 +84,15 @@ jobs:
           fi
           docker exec ipfs ipfs id
 
-      # Known failing: fiftysix/kubo's fresh daemon binds its API and gateway to
-      # 127.0.0.1 inside the container, so the ports nodevin publishes (5001,
-      # 8080) are not reachable from the host even though the image's
-      # config.conf asks for 0.0.0.0. This is a node-images problem, so it only
-      # warns here. Once the image is fixed, remove continue-on-error so this
-      # becomes a hard check.
+      # Known issue: the fresh fiftysix/kubo daemon binds its API and gateway
+      # to 127.0.0.1 inside the container, so published ports 5001/8080 are
+      # unreachable from the host. The image's entrypoint passes the deprecated
+      # global `--config` flag, which does not apply config.conf (StorageMax,
+      # Addresses, ... all stay at kubo defaults), and `--init-config` cannot
+      # load that partial file either. Fixing the image alone would expose the
+      # admin-level RPC on every host interface because nodevin publishes
+      # "5001:5001"; nodevin should publish it on 127.0.0.1 first. Warn only
+      # until both are done, then drop continue-on-error.
       - name: Published ipfs ports are reachable from the host (known issue)
         continue-on-error: true
         run: |
