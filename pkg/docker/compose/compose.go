@@ -23,6 +23,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 
 	"github.com/fiftysixcrypto/nodevin/internal/logger"
@@ -494,6 +495,10 @@ fi"`, initSnapshotSyncCommand),
 			watchtowerContainerNames = append(watchtowerContainerNames, name)
 		}
 	}
+
+	// Map iteration order is random; sort so the generated file (and therefore
+	// the watchtower container's config) is identical between runs.
+	sort.Strings(watchtowerContainerNames)
 
 	watchtowerService := Service{
 		ContainerName: "watchtower-nodevin",

@@ -239,23 +239,9 @@ func TestCreateComposeFile_WithExtraServices(t *testing.T) {
 	}
 
 	// Watchtower must watch the real services but never the one-shot init
-	// containers. Its argument order comes from map iteration, so compare as
-	// a set.
-	fields := strings.Fields(cf.Services["watchtower"].Command)
-	watched := map[string]bool{}
-	for _, f := range fields {
-		watched[f] = true
-	}
-	if !watched["bitcoin-core"] || !watched["ord"] {
-		t.Errorf("watchtower command %q should watch bitcoin-core and ord", cf.Services["watchtower"].Command)
-	}
-	for f := range watched {
-		if strings.HasPrefix(f, "init-") {
-			t.Errorf("watchtower command %q must not watch init containers", cf.Services["watchtower"].Command)
-		}
-	}
-	if !strings.Contains(cf.Services["watchtower"].Command, "--interval 7200") {
-		t.Errorf("watchtower command %q missing its interval", cf.Services["watchtower"].Command)
+	// containers, and its argument order must be stable between runs.
+	if got, want := cf.Services["watchtower"].Command, "bitcoin-core ord --interval 7200"; got != want {
+		t.Errorf("watchtower command = %q, want %q", got, want)
 	}
 }
 

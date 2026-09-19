@@ -26,3 +26,66 @@ jobs:
 
       - name: Test
         run: go test ./... -count=1
+
+  compose-validate-and-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NODEVIN_CI_COMPOSE_DIR: ${{ github.workspace }}/.ci-compose
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.4'
+
+      # Writes the compose files nodevin really generates: every registered
+      # network, plus the --ord / --ord-litecoin / --ipfs-cluster combinations.
+      - name: Generate compose files
+        run: go test ./pkg/docker/compose -run TestGenerateComposeFilesForCI -count=1 -v
+
+      # Catches structural errors (bad port specs, YAML shape, unknown keys).
+      # It cannot catch semantic mistakes such as an empty command; the
+      # registry tests in `go test` cover those.
+      - name: Validate generated compose files
+        run: |
+          set -e
+          count=0
+          while IFS= read -r file; do
+            echo "::group::$file"
+            docker compose -f "$file" config -q
+            echo "::endgroup::"
+            count=$((count + 1))
+          done < <(find "$NODEVIN_CI_COMPOSE_DIR" -name 'docker-compose_*.yml' | sort)
+          echo "validated $count compose files"
+          test "$count" -ge 17
+
+      # Starts a real container from the generated file (ipfs: fast, no chain
+      # sync) and checks nodevin's advertised port answers.
+      - name: Smoke test - start ipfs, check RPC, stop
+        run: |
+          file="$NODEVIN_CI_COMPOSE_DIR/.nodevin/data/docker-compose_ipfs.yml"
+          docker compose -f "$file" up -d ipfs
+          ok=0
+          for i in $(seq 1 45); do
+            if curl -sf -X POST http://127.0.0.1:5001/api/v0/version; then
+              ok=1
+              echo
+              break
+            fi
+            sleep 2
+          done
+          if [ "$ok" != 1 ]; then
+            echo "ipfs RPC on :5001 never became reachable"
+            docker compose -f "$file" ps -a
+            docker compose -f "$file" logs --no-color
+            exit 1
+          fi
+
+      - name: Tear down
+        if: always()
+        run: |
+          file="$NODEVIN_CI_COMPOSE_DIR/.nodevin/data/docker-compose_ipfs.yml"
+          if [ -f "$file" ]; then docker compose -f "$file" down -v --remove-orphans; fi

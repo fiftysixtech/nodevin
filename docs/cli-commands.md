@@ -99,6 +99,8 @@ Nodevin is a command-line interface (CLI) that simplifies the setup, management,
 *Default*: `latest`
 *Usage*: `--ord-litecoin-version=<tag>`
 
+*Note on ord web ports*: each `ord` instance publishes its web interface on its own host port so several can run at once: `ord` on `80`, `ord` (testnet) on `8081`, `ord-litecoin` on `8082`, and `ord-litecoin` (testnet) on `8083`. Override with `--ports`.
+
 - **`--ipfs-cluster`**
 
 *Description*: Runs `ipfs-cluster` software alongside the IPFS node.

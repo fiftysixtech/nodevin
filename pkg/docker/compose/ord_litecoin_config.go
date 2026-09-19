@@ -61,6 +61,7 @@ func GetOrdLitecoinNetworkComposeConfig(network string) (NetworkConfig, error) {
 		localPath := filepath.Join(nodevinDataDir, "ord-litecoin")     // nodevin data dir, software type
 		localChainDataPath := filepath.Join(localPath, "ord-litecoin") // on-image data dir
 		baseConfig.ContainerName = "ord-litecoin"
+		baseConfig.Ports = []string{"8082:80"}
 		baseConfig.Command = "ord --litecoin-rpc-url http://litecoin-core:9332"
 		baseConfig.Volumes = []string{
 			fmt.Sprintf("%s:/node/litecoin-core", filepath.Join(nodevinDataDir, "litecoin-core", "litecoin-core")),
@@ -88,6 +89,7 @@ func GetOrdLitecoinNetworkComposeConfig(network string) (NetworkConfig, error) {
 			fmt.Sprintf("%s:/node/ord-litecoin", localChainDataPath),
 		}
 		baseConfig.Networks = []string{"litecoin-testnet-net"}
+		baseConfig.Ports = []string{"8083:80"}
 		baseConfig.NetworkDefs = map[string]NetworkDetails{
 			"litecoin-testnet-net": {
 				Driver: "bridge",

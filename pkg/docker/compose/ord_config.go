@@ -88,6 +88,7 @@ func GetOrdNetworkComposeConfig(network string) (NetworkConfig, error) {
 			fmt.Sprintf("%s:/node/ord", localChainDataPath),
 		}
 		baseConfig.Networks = []string{"bitcoin-testnet-net"}
+		baseConfig.Ports = []string{"8081:80"}
 		baseConfig.NetworkDefs = map[string]NetworkDetails{
 			"bitcoin-testnet-net": {
 				Driver: "bridge",
