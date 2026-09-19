@@ -19,6 +19,7 @@
 package compose
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -110,5 +111,76 @@ func TestRegistryTableCoversAllNetworks(t *testing.T) {
 
 	if len(allNetworks) != len(networkBuilders) {
 		t.Errorf("networkInfoMap has %d networks but networkBuilders has %d rows — table is out of sync", len(allNetworks), len(networkBuilders))
+	}
+}
+
+func hostPorts(t *testing.T, cfg NetworkConfig) []string {
+	t.Helper()
+	var out []string
+	for _, p := range cfg.Ports {
+		spec, proto := p, "tcp"
+		if i := strings.Index(p, "/"); i >= 0 {
+			spec, proto = p[:i], p[i+1:]
+		}
+		parts := strings.Split(spec, ":")
+		if len(parts) < 2 {
+			t.Fatalf("port mapping %q is not host:container", p)
+		}
+		out = append(out, parts[len(parts)-2]+"/"+proto)
+	}
+	return out
+}
+
+// TestNoHostPortCollisions asserts no two networks publish the same host
+// port. Before this check, ord, ord-testnet, ord-litecoin and
+// ord-litecoin-testnet all bound host port 80, so `ord` and `ord-litecoin`
+// could not run at the same time. Every network here can plausibly run
+// alongside any other, so there is deliberately no allowlist: a new chain
+// (e.g. an L2 defaulting to 8545, which Ethereum Classic already uses) must
+// pick a free port.
+func TestNoHostPortCollisions(t *testing.T) {
+	viper.Set("data-dir", t.TempDir())
+	t.Cleanup(func() { viper.Set("data-dir", "") })
+
+	owners := make(map[string][]string)
+	for _, row := range networkBuilders {
+		cfg, err := row.builder(row.network)
+		if err != nil {
+			t.Fatalf("builder(%q): %v", row.network, err)
+		}
+		for _, port := range hostPorts(t, cfg) {
+			owners[port] = append(owners[port], row.network)
+		}
+	}
+
+	for port, networks := range owners {
+		if len(networks) > 1 {
+			t.Errorf("host port %s is published by more than one network: %v", port, networks)
+		}
+	}
+}
+
+// TestRegistryRPCPortIsPublished ties internal/utils' RPCPort (what
+// `request` connects to by default) to what each builder actually publishes,
+// so the two can't drift apart.
+func TestRegistryRPCPortIsPublished(t *testing.T) {
+	viper.Set("data-dir", t.TempDir())
+	t.Cleanup(func() { viper.Set("data-dir", "") })
+
+	for _, row := range networkBuilders {
+		t.Run(row.network, func(t *testing.T) {
+			cfg, err := row.builder(row.network)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			want := fmt.Sprintf("%d/tcp", utils.NetworkDefaultRPCPorts()[row.network])
+			for _, port := range hostPorts(t, cfg) {
+				if port == want {
+					return
+				}
+			}
+			t.Errorf("registry RPCPort %s is not published by the builder (publishes %v)", want, cfg.Ports)
+		})
 	}
 }

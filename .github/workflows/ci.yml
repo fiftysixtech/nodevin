@@ -26,3 +26,101 @@ jobs:
 
       - name: Test
         run: go test ./... -count=1
+
+  compose-validate-and-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NODEVIN_CI_COMPOSE_DIR: ${{ github.workspace }}/.ci-compose
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.4'
+
+      # Writes the compose files nodevin really generates: every registered
+      # network, plus the --ord / --ord-litecoin / --ipfs-cluster combinations.
+      - name: Generate compose files
+        run: go test ./pkg/docker/compose -run TestGenerateComposeFilesForCI -count=1 -v
+
+      # Catches structural errors (bad port specs, YAML shape, unknown keys).
+      # It cannot catch semantic mistakes such as an empty command; the
+      # registry tests in `go test` cover those.
+      - name: Validate generated compose files
+        run: |
+          set -e
+          count=0
+          while IFS= read -r file; do
+            echo "::group::$file"
+            docker compose -f "$file" config -q
+            echo "::endgroup::"
+            count=$((count + 1))
+          done < <(find "$NODEVIN_CI_COMPOSE_DIR" -name 'docker-compose_*.yml' | sort)
+          echo "validated $count compose files"
+          test "$count" -ge 17
+
+      # Starts a real container from the generated file (ipfs: fast, no chain
+      # sync) and checks the daemon inside comes up healthy.
+      - name: Smoke test - start ipfs from the generated compose file
+        run: |
+          file="$NODEVIN_CI_COMPOSE_DIR/.nodevin/data/docker-compose_ipfs.yml"
+          docker compose -f "$file" up -d ipfs
+          ok=0
+          for i in $(seq 1 60); do
+            if docker logs ipfs 2>&1 | grep -q "Daemon is ready"; then
+              ok=1
+              break
+            fi
+            sleep 2
+          done
+          if [ "$ok" != 1 ]; then
+            echo "ipfs daemon never reported ready"
+            docker compose -f "$file" ps -a
+            docker compose -f "$file" logs --no-color
+            exit 1
+          fi
+          docker exec ipfs ipfs id
+
+      # Known issue: the fresh fiftysix/kubo daemon binds its API and gateway
+      # to 127.0.0.1 inside the container, so published ports 5001/8080 are
+      # unreachable from the host. The image's entrypoint passes the deprecated
+      # global `--config` flag, which does not apply config.conf (StorageMax,
+      # Addresses, ... all stay at kubo defaults), and `--init-config` cannot
+      # load that partial file either. Fixing the image alone would expose the
+      # admin-level RPC on every host interface because nodevin publishes
+      # "5001:5001"; nodevin should publish it on 127.0.0.1 first. Warn only
+      # until both are done, then drop continue-on-error.
+      - name: Published ipfs ports are reachable from the host (known issue)
+        continue-on-error: true
+        run: |
+          echo "Addresses configured in the running repo:"
+          docker exec ipfs ipfs config Addresses
+          echo "Other settings config.conf intends to set (StorageMax 1TB, empty Bootstrap):"
+          docker exec ipfs ipfs config Datastore.StorageMax
+          docker exec ipfs ipfs config Bootstrap | head -3
+          echo "Experiment: would --init-config with the shipped config.conf work?"
+          docker run --rm --entrypoint bash fiftysix/kubo:latest -c '
+            export IPFS_PATH=/tmp/probe; mkdir -p "$IPFS_PATH"
+            timeout 25 ipfs daemon --init --init-config /node/ipfs/configs/config.conf 2>&1 | head -25
+            echo "--- repo after attempt ---"
+            ls "$IPFS_PATH" 2>&1 | head
+            ipfs config Identity.PeerID 2>&1 | head -2
+          ' || true
+          echo "Daemon-reported listeners:"
+          docker logs ipfs 2>&1 | grep -E "RPC API server|Gateway server" || true
+          if curl -sf -X POST --max-time 10 http://127.0.0.1:5001/api/v0/version; then
+            echo
+            echo "host can reach the RPC API on :5001"
+          else
+            echo "::warning::ipfs RPC API on published port 5001 is unreachable from the host (API is bound to loopback inside the container)"
+            exit 1
+          fi
+
+      - name: Tear down
+        if: always()
+        run: |
+          file="$NODEVIN_CI_COMPOSE_DIR/.nodevin/data/docker-compose_ipfs.yml"
+          if [ -f "$file" ]; then docker compose -f "$file" down -v --remove-orphans; fi

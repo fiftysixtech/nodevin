@@ -74,7 +74,7 @@ var networkInfoMap = map[string]NetworkInfo{
 	"ord-testnet": {
 		ContainerName:    "ord-testnet",
 		DockerHubImage:   "ord",
-		RPCPort:          80,
+		RPCPort:          8081,
 		SnapshotCID:      "",
 		DataSize:         0,
 		SnapshotSize:     0,
@@ -104,7 +104,7 @@ var networkInfoMap = map[string]NetworkInfo{
 	"ord-litecoin": {
 		ContainerName:    "ord-litecoin",
 		DockerHubImage:   "ord-litecoin",
-		RPCPort:          80,
+		RPCPort:          8082,
 		SnapshotCID:      "",
 		DataSize:         107387498496, // 100 GB
 		SnapshotSize:     0,            // (~100GB + ~100GB)
@@ -114,7 +114,7 @@ var networkInfoMap = map[string]NetworkInfo{
 	"ord-litecoin-testnet": {
 		ContainerName:    "ord-litecoin-testnet",
 		DockerHubImage:   "ord-litecoin",
-		RPCPort:          80,
+		RPCPort:          8083,
 		SnapshotCID:      "",
 		DataSize:         0,
 		SnapshotSize:     0,
