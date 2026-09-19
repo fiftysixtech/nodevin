@@ -369,6 +369,10 @@ func CreateComposeFile(nodeName string, config NetworkConfig, extraServiceNames 
 		Environment:   finalConfig.Environment,
 	}
 
+	if isDeploySet(finalConfig.Deploy) {
+		mainService.Deploy = &Deploy{Resources: finalConfig.Deploy.Resources}
+	}
+
 	// Initialize services map and volume labels
 	services := make(map[string]Service)
 	allVolumeDefs := make(map[string]VolumeDetails)

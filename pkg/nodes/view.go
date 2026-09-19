@@ -6,6 +6,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 
@@ -129,15 +131,34 @@ func getSoftwareNetworkName(softwareName string) string {
 	}
 }
 
+var uptimeRe = regexp.MustCompile(`^Up (?:About )?(\d+|an?) (hour|day|week|month|year)s?\b`)
+
+// extractUptime converts a `docker ps` status (e.g. "Up 3 days", "Up 2 weeks",
+// "Up About an hour") into whole days. Anything under a day that is measured
+// in hours counts as 1, and sub-hour or non-running statuses count as 0.
 func extractUptime(status string) int {
-	if strings.Contains(status, "days") {
-		var days int
-		fmt.Sscanf(status, "%d days", &days)
-		return days
-	} else if strings.Contains(status, "hours") {
-		return 1
+	m := uptimeRe.FindStringSubmatch(status)
+	if m == nil {
+		return 0
 	}
-	return 0
+
+	n := 1
+	if m[1] != "a" && m[1] != "an" {
+		n, _ = strconv.Atoi(m[1])
+	}
+
+	switch m[2] {
+	case "hour":
+		return 1
+	case "day":
+		return n
+	case "week":
+		return n * 7
+	case "month":
+		return n * 30
+	default:
+		return n * 365
+	}
 }
 
 func displayNodevinArt(nodeSizes map[string]int64, nodes []NodeData) {
