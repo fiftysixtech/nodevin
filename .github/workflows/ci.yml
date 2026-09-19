@@ -95,6 +95,17 @@ jobs:
         run: |
           echo "Addresses configured in the running repo:"
           docker exec ipfs ipfs config Addresses
+          echo "Other settings config.conf intends to set (StorageMax 1TB, empty Bootstrap):"
+          docker exec ipfs ipfs config Datastore.StorageMax
+          docker exec ipfs ipfs config Bootstrap | head -3
+          echo "Experiment: would --init-config with the shipped config.conf work?"
+          docker run --rm --entrypoint bash fiftysix/kubo:latest -c '
+            export IPFS_PATH=/tmp/probe; mkdir -p "$IPFS_PATH"
+            timeout 25 ipfs daemon --init --init-config /node/ipfs/configs/config.conf 2>&1 | head -25
+            echo "--- repo after attempt ---"
+            ls "$IPFS_PATH" 2>&1 | head
+            ipfs config Identity.PeerID 2>&1 | head -2
+          ' || true
           echo "Daemon-reported listeners:"
           docker logs ipfs 2>&1 | grep -E "RPC API server|Gateway server" || true
           if curl -sf -X POST --max-time 10 http://127.0.0.1:5001/api/v0/version; then
