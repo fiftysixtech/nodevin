@@ -54,6 +54,7 @@ func GetKuboNetworkComposeConfig(network string) (NetworkConfig, error) {
 		localChainDataPath := filepath.Join(localPath, "ipfs") // on-image data dir
 		baseConfig.ContainerName = "ipfs"
 		baseConfig.Command = ""
+		baseConfig.CommandIsIntentionallyEmpty = true
 		baseConfig.Volumes = []string{fmt.Sprintf("%s:/node/ipfs", localChainDataPath)}
 		baseConfig.VolumeDefs = map[string]VolumeDetails{
 			"ipfs-data": {

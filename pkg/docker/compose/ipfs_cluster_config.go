@@ -74,6 +74,7 @@ func GetIpfsClusterNetworkComposeConfig(network string) (NetworkConfig, error) {
 		localChainDataPath := filepath.Join(localPath, "ipfs-cluster") // on-image data dir
 		baseConfig.ContainerName = "ipfs-cluster"
 		baseConfig.Command = ""
+		baseConfig.CommandIsIntentionallyEmpty = true
 		baseConfig.Volumes = []string{
 			fmt.Sprintf("%s:/node/ipfs", filepath.Join(nodevinDataDir, "ipfs", "ipfs")),
 			fmt.Sprintf("%s:/node/ipfs-cluster", localChainDataPath),

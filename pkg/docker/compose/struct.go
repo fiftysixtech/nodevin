@@ -86,21 +86,26 @@ type ComposeFile struct {
 
 // NetworkConfig holds the configuration used to override or define services.
 type NetworkConfig struct {
-	Image                string
-	Version              string
-	ContainerName        string
-	Command              string
-	Restart              string
-	Ports                []string
-	Volumes              []string
-	Networks             []string
-	Deploy               Deploy
-	Environment          map[string]string
-	NetworkDefs          map[string]NetworkDetails
-	VolumeDefs           map[string]VolumeDetails
-	LocalPath            string
-	SnapshotSyncCID      string
-	LocalChainDataPath   string
-	SnapshotDataFilename string
-	SnapshotSyncCommand  string
+	Image         string
+	Version       string
+	ContainerName string
+	Command       string
+	// CommandIsIntentionallyEmpty marks that this network's Command is meant
+	// to be empty (e.g. ipfs/ipfs-cluster rely on the image's own baked-in
+	// entrypoint), so a generic "Command must be non-empty" check doesn't
+	// need a hardcoded per-network allowlist to know that's expected.
+	CommandIsIntentionallyEmpty bool
+	Restart                     string
+	Ports                       []string
+	Volumes                     []string
+	Networks                    []string
+	Deploy                      Deploy
+	Environment                 map[string]string
+	NetworkDefs                 map[string]NetworkDetails
+	VolumeDefs                  map[string]VolumeDetails
+	LocalPath                   string
+	SnapshotSyncCID             string
+	LocalChainDataPath          string
+	SnapshotDataFilename        string
+	SnapshotSyncCommand         string
 }

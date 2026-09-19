@@ -30,9 +30,21 @@ import (
 	"github.com/spf13/viper"
 )
 
-func CreateOrdLitecoinComposeFile(cwd string) (string, error) {
-	var network string
+// resolveOrdLitecoinNetwork picks the network name to pass to
+// compose.GetOrdLitecoinNetworkComposeConfig based on the --testnet/--network
+// flags. Kept as its own pure function so this decision is unit-testable
+// without going through CreateOrdLitecoinComposeFile's Docker-dependent tail
+// (docker.PullImage, which requires a real Docker daemon and a logger
+// initialized via logger.Init(), neither of which are available in a plain
+// unit test).
+func resolveOrdLitecoinNetwork() string {
+	if utils.CheckIfTestnetOrTestnetNetworkFlag() {
+		return "ord-litecoin-testnet"
+	}
+	return "ord-litecoin"
+}
 
+func CreateOrdLitecoinComposeFile(cwd string) (string, error) {
 	if runtime.GOARCH == "arm64" {
 		err := errors.New("ord-litecoin functionality is not supported on ARM builds")
 		logger.LogError("Running on ARM architecture: " + err.Error())
@@ -41,11 +53,7 @@ func CreateOrdLitecoinComposeFile(cwd string) (string, error) {
 
 	fmt.Printf("WARNING: It isn't reccomended to start ord-litecoin individually. Most cases would require starting ord-litecoin alongside Litecoin with command `%s start litecoin --ord-litecoin`. You may run into unintentional errors or require additional configuration.", utils.GetNodevinExecutable())
 
-	if utils.CheckIfTestnetOrTestnetNetworkFlag() {
-		network = "ord-litecoin-testnet"
-	} else {
-		network = "ord=litecoin"
-	}
+	network := resolveOrdLitecoinNetwork()
 
 	ordLitecoinBaseComposeConfig, err := compose.GetOrdLitecoinNetworkComposeConfig(network)
 	if err != nil {

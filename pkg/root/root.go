@@ -75,11 +75,17 @@ func init() {
 	rootCmd.PersistentFlags().Bool("ord", false, "Run ordinal software ord alongside the Bitcoin/Litecoin node")
 	rootCmd.PersistentFlags().String("ord-image", "fiftysix/ord", "Docker image to use for ord (image name -- ex: fiftysix/ord)")
 	rootCmd.PersistentFlags().String("ord-version", "latest", "Version of Docker image to use for ord (tag -- ex: latest, 27.0)")
+	rootCmd.PersistentFlags().Bool("ord-cookie-auth", false, "(ord only) Use authentication directly with the Bitcoin node cookie file -- (default: false)")
+	rootCmd.PersistentFlags().String("ord-rpc-user", "", "(ord only) Username passed in via command for the Bitcoin JSON RPC connection (default: user)")
+	rootCmd.PersistentFlags().String("ord-rpc-pass", "", "(ord only) Password passed in via command for the Bitcoin JSON RPC connection (default: fiftysix)")
 
 	// Litecoin specific flags
 	rootCmd.PersistentFlags().Bool("ord-litecoin", false, "Run ordinal software ord alongside the Litecoin node")
 	rootCmd.PersistentFlags().String("ord-litecoin-image", "fiftysix/ord-litecoin", "Docker image to use for ord (image name -- ex: fiftysix/ord-litecoin)")
 	rootCmd.PersistentFlags().String("ord-litecoin-version", "latest", "Version of Docker image to use for ord (tag -- ex: latest, 27.0)")
+	rootCmd.PersistentFlags().Bool("ord-litecoin-cookie-auth", false, "(ord-litecoin only) Use authentication directly with the Litecoin node cookie file -- (default: false)")
+	rootCmd.PersistentFlags().String("ord-litecoin-rpc-user", "", "(ord-litecoin only) Username passed in via command for the Litecoin JSON RPC connection (default: falls back to --ord-rpc-user, then \"user\")")
+	rootCmd.PersistentFlags().String("ord-litecoin-rpc-pass", "", "(ord-litecoin only) Password passed in via command for the Litecoin JSON RPC connection (default: falls back to --ord-rpc-pass, then \"fiftysix\")")
 
 	// IPFS specific flags
 	rootCmd.PersistentFlags().Bool("ipfs-cluster", false, "Run ipfs-cluster software ord alongside the IPFS node")
@@ -123,11 +129,17 @@ func init() {
 	viper.BindPFlag("ord", rootCmd.PersistentFlags().Lookup("ord"))
 	viper.BindPFlag("ord-image", rootCmd.PersistentFlags().Lookup("ord-image"))
 	viper.BindPFlag("ord-version", rootCmd.PersistentFlags().Lookup("ord-version"))
+	viper.BindPFlag("ord-cookie-auth", rootCmd.PersistentFlags().Lookup("ord-cookie-auth"))
+	viper.BindPFlag("ord-rpc-user", rootCmd.PersistentFlags().Lookup("ord-rpc-user"))
+	viper.BindPFlag("ord-rpc-pass", rootCmd.PersistentFlags().Lookup("ord-rpc-pass"))
 
 	// Litecoin specific flags
 	viper.BindPFlag("ord-litecoin", rootCmd.PersistentFlags().Lookup("ord-litecoin"))
 	viper.BindPFlag("ord-litecoin-image", rootCmd.PersistentFlags().Lookup("ord-litecoin-image"))
 	viper.BindPFlag("ord-litecoin-version", rootCmd.PersistentFlags().Lookup("ord-litecoin-version"))
+	viper.BindPFlag("ord-litecoin-cookie-auth", rootCmd.PersistentFlags().Lookup("ord-litecoin-cookie-auth"))
+	viper.BindPFlag("ord-litecoin-rpc-user", rootCmd.PersistentFlags().Lookup("ord-litecoin-rpc-user"))
+	viper.BindPFlag("ord-litecoin-rpc-pass", rootCmd.PersistentFlags().Lookup("ord-litecoin-rpc-pass"))
 
 	// IPFS specific flags
 	viper.BindPFlag("ipfs-cluster", rootCmd.PersistentFlags().Lookup("ipfs-cluster"))

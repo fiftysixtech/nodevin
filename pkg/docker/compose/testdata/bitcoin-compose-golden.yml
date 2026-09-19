@@ -1,0 +1,52 @@
+services:
+    bitcoin-core:
+        image: fiftysix/bitcoin-core:latest
+        container_name: bitcoin-core
+        restart: ""
+        command: bitcoind --server=1 --rpcbind=0.0.0.0 --rpcport=8332 --rpcallowip=0.0.0.0/0 -rpcuser=user -rpcpassword=fiftysix
+        ports:
+            - 8332:8332
+            - 8333:8333
+        volumes:
+            - TMPDIR/.nodevin/data/bitcoin-core/bitcoin-core:/node/bitcoin-core
+        networks:
+            - bitcoin-net
+        depends_on:
+            init-config-bitcoin-core:
+                condition: service_completed_successfully
+    init-config-bitcoin-core:
+        image: fiftysix/bitcoin-core:latest
+        container_name: init-config-bitcoin-core
+        restart: "no"
+        command: |-
+            /bin/sh -c "
+            if [ ! -f /nodevin-volume/.copy-done ]; then
+              mkdir -p /nodevin-volume/ &&
+              cp -r * /nodevin-volume/ &&
+              echo 'Snapshot sync not enabled. Skipping download.' &&
+              touch /nodevin-volume/.copy-done
+            else
+              echo 'Volume not empty, skipping file copy';
+            fi"
+        ports: []
+        volumes:
+            - bitcoin-core-init-volume:/init-volume
+            - TMPDIR/.nodevin/data/bitcoin-core:/nodevin-volume
+        networks: []
+    watchtower:
+        image: containrrr/watchtower
+        container_name: watchtower-nodevin
+        restart: ""
+        command: bitcoin-core --interval 7200
+        ports: []
+        volumes:
+            - /var/run/docker.sock:/var/run/docker.sock
+        networks: []
+networks:
+    bitcoin-net:
+        driver: bridge
+volumes:
+    bitcoin-core-init-volume:
+        labels:
+            nodevin.blockchain.software: bitcoin-core-init-volume
+            nodevin.init.volume: "true"
