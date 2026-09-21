@@ -52,7 +52,7 @@ nodevin start bitcoin \
   --testnet \
   --image=fiftysix/bitcoin-core \
   --version=27.0 \
-  --ports="8332:8332,8333:8333,18332:18332,18333:18333" \
+  --ports="127.0.0.1:8332:8332,8333:8333,127.0.0.1:18332:18332,18333:18333" \
   --data-dir="~/Desktop" \
   --restart=always \
   --cpu-limit=2.0 \

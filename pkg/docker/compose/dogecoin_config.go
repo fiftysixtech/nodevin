@@ -35,9 +35,13 @@ func GetDogecoinNetworkComposeConfig(network string) (NetworkConfig, error) {
 
 	// Define the base configuration for the Dogecoin network
 	baseConfig := NetworkConfig{
-		Image:    "fiftysix/dogecoin-core",
-		Version:  "latest",
-		Ports:    []string{"22555:22555", "22556:22556"},
+		Image:   "fiftysix/dogecoin-core",
+		Version: "latest",
+		// The JSON-RPC port is published on the host's loopback interface only:
+		// it is an admin-level API (and, for the Bitcoin family, protected by a
+		// shared password over plain HTTP). Peer ports stay public so other
+		// nodes can connect. Override with --ports.
+		Ports:    []string{"127.0.0.1:22555:22555", "22556:22556"},
 		Volumes:  []string{},
 		Networks: []string{"dogecoin-net"},
 		NetworkDefs: map[string]NetworkDetails{
@@ -85,7 +89,7 @@ func GetDogecoinNetworkComposeConfig(network string) (NetworkConfig, error) {
 				Driver: "bridge",
 			},
 		}
-		baseConfig.Ports = []string{"44555:44555", "44556:44556"}
+		baseConfig.Ports = []string{"127.0.0.1:44555:44555", "44556:44556"}
 		baseConfig.Volumes = []string{fmt.Sprintf("%s:/node/dogecoin-core", localChainDataPath)}
 		baseConfig.VolumeDefs = map[string]VolumeDetails{
 			"dogecoin-core-testnet-data": {

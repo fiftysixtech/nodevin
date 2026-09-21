@@ -35,9 +35,13 @@ func GetLitecoinNetworkComposeConfig(network string) (NetworkConfig, error) {
 
 	// Define the base configuration for the Litecoin network
 	baseConfig := NetworkConfig{
-		Image:    "fiftysix/litecoin-core",
-		Version:  "latest",
-		Ports:    []string{"9332:9332", "9333:9333"},
+		Image:   "fiftysix/litecoin-core",
+		Version: "latest",
+		// The JSON-RPC port is published on the host's loopback interface only:
+		// it is an admin-level API (and, for the Bitcoin family, protected by a
+		// shared password over plain HTTP). Peer ports stay public so other
+		// nodes can connect. Override with --ports.
+		Ports:    []string{"127.0.0.1:9332:9332", "9333:9333"},
 		Volumes:  []string{},
 		Networks: []string{"litecoin-net"},
 		NetworkDefs: map[string]NetworkDetails{
@@ -85,7 +89,7 @@ func GetLitecoinNetworkComposeConfig(network string) (NetworkConfig, error) {
 				Driver: "bridge",
 			},
 		}
-		baseConfig.Ports = []string{"19332:19332", "19333:19333"}
+		baseConfig.Ports = []string{"127.0.0.1:19332:19332", "19333:19333"}
 		baseConfig.Volumes = []string{fmt.Sprintf("%s:/node/litecoin-core", localChainDataPath)}
 		baseConfig.VolumeDefs = map[string]VolumeDetails{
 			"litecoin-core-testnet-data": {
