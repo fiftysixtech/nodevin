@@ -228,6 +228,8 @@ Nodevin is a command-line interface (CLI) that simplifies the setup, management,
 *Usage*: `--ports="<port1:port1,port2:port2,...>"`
 *Example*: `--ports="8332:8332,8333:8333"`
 
+*Note*: `--ports` replaces the node's default mappings entirely, so list every port you want published. For IPFS the defaults are `4001:4001`, `127.0.0.1:5001:5001` (RPC API) and `127.0.0.1:8080:8080` (gateway): the API and gateway are only reachable from the machine running the node. The API has admin-level access, so only publish it on other interfaces (for example `--ports="4001:4001,0.0.0.0:5001:5001"`) if you have put authentication or a firewall in front of it.
+
 - **`--volumes`**
 
 *Description*: Docker volumes to mount.

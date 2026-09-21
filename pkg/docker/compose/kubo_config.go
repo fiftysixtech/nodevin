@@ -34,9 +34,13 @@ func GetKuboNetworkComposeConfig(network string) (NetworkConfig, error) {
 
 	// Define the base configuration for Kubo (IPFS)
 	baseConfig := NetworkConfig{
-		Image:    "fiftysix/kubo",
-		Version:  "latest",
-		Ports:    []string{"4001:4001", "5001:5001", "8080:8080"},
+		Image:   "fiftysix/kubo",
+		Version: "latest",
+		// The RPC API (5001) gives admin-level control of the node and the
+		// gateway (8080) serves arbitrary content through it, so both are only
+		// published on the host's loopback interface. Only the swarm port
+		// (4001) has to be reachable from the network. Override with --ports.
+		Ports:    []string{"4001:4001", "127.0.0.1:5001:5001", "127.0.0.1:8080:8080"},
 		Volumes:  []string{},
 		Networks: []string{"ipfs-net"},
 		NetworkDefs: map[string]NetworkDetails{
