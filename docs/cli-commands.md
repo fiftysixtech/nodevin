@@ -226,9 +226,11 @@ Nodevin is a command-line interface (CLI) that simplifies the setup, management,
 
 *Description*: Port mappings for the node container.
 *Usage*: `--ports="<port1:port1,port2:port2,...>"`
-*Example*: `--ports="8332:8332,8333:8333"`
+*Example*: `--ports="127.0.0.1:8332:8332,8333:8333"`
 
 *Note*: `--ports` replaces the node's default mappings entirely, so list every port you want published. For IPFS the defaults are `4001:4001`, `127.0.0.1:5001:5001` (RPC API) and `127.0.0.1:8080:8080` (gateway): the API and gateway are only reachable from the machine running the node. The API has admin-level access, so only publish it on other interfaces (for example `--ports="4001:4001,0.0.0.0:5001:5001"`) if you have put authentication or a firewall in front of it.
+
+*Note on RPC ports*: for every chain the JSON-RPC port is published on `127.0.0.1` only, and peer ports stay public so other nodes can connect: Bitcoin `127.0.0.1:8332` + `8333`, Litecoin `127.0.0.1:9332` + `9333`, Dogecoin `127.0.0.1:22555` + `22556`, Ethereum Classic `127.0.0.1:8545` + `30303` (testnets use their own ports). To reach a node's RPC from another machine, list the mapping yourself, for example `--ports="0.0.0.0:8332:8332,8333:8333"`, and set your own `--rpc-user`/`--rpc-pass`: the defaults (`user`/`fiftysix`) are public, RPC is plain HTTP, and Ethereum Classic's RPC has no authentication at all. Prefer an SSH tunnel or a firewall rule to publishing RPC on a public interface. The `ord` web interface and the `ipfs-cluster` REST API are unchanged.
 
 - **`--volumes`**
 
@@ -284,7 +286,7 @@ nodevin start bitcoin \
 --image=fiftysix/bitcoin-core \
 --version=27.0 \
 --container-name=bitcoin-node \
---ports="8332:8332,8333:8333" \
+--ports="127.0.0.1:8332:8332,8333:8333" \
 --restart=always \
 --cpu-limit=2.0 \
 --mem-limit=1g \

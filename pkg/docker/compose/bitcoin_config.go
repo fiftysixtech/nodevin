@@ -35,9 +35,13 @@ func GetBitcoinNetworkComposeConfig(network string) (NetworkConfig, error) {
 
 	// Define the base configuration for the Bitcoin network
 	baseConfig := NetworkConfig{
-		Image:    "fiftysix/bitcoin-core",
-		Version:  "latest",
-		Ports:    []string{"8332:8332", "8333:8333"},
+		Image:   "fiftysix/bitcoin-core",
+		Version: "latest",
+		// The JSON-RPC port is published on the host's loopback interface only:
+		// it is an admin-level API (and, for the Bitcoin family, protected by a
+		// shared password over plain HTTP). Peer ports stay public so other
+		// nodes can connect. Override with --ports.
+		Ports:    []string{"127.0.0.1:8332:8332", "8333:8333"},
 		Volumes:  []string{},
 		Networks: []string{"bitcoin-net"},
 		NetworkDefs: map[string]NetworkDetails{
@@ -85,7 +89,7 @@ func GetBitcoinNetworkComposeConfig(network string) (NetworkConfig, error) {
 				Driver: "bridge",
 			},
 		}
-		baseConfig.Ports = []string{"18332:18332", "18333:18333"}
+		baseConfig.Ports = []string{"127.0.0.1:18332:18332", "18333:18333"}
 		baseConfig.Volumes = []string{fmt.Sprintf("%s:/node/bitcoin-core", localChainDataPath)}
 		baseConfig.VolumeDefs = map[string]VolumeDetails{
 			"bitcoin-core-testnet-data": {

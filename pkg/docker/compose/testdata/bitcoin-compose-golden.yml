@@ -5,7 +5,7 @@ services:
         restart: ""
         command: bitcoind --server=1 --rpcbind=0.0.0.0 --rpcport=8332 --rpcallowip=0.0.0.0/0 -rpcuser=user -rpcpassword=fiftysix
         ports:
-            - 8332:8332
+            - 127.0.0.1:8332:8332
             - 8333:8333
         volumes:
             - TMPDIR/.nodevin/data/bitcoin-core/bitcoin-core:/node/bitcoin-core

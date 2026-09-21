@@ -34,9 +34,13 @@ func GetEthereumClassicNetworkComposeConfig(network string) (NetworkConfig, erro
 
 	// Define the base configuration for the Ethereum Classic network
 	baseConfig := NetworkConfig{
-		Image:    "fiftysix/core-geth",
-		Version:  "latest",
-		Ports:    []string{"8545:8545", "30303:30303", "30303:30303/udp"},
+		Image:   "fiftysix/core-geth",
+		Version: "latest",
+		// The JSON-RPC port is published on the host's loopback interface only:
+		// it is an admin-level API (and, for the Bitcoin family, protected by a
+		// shared password over plain HTTP). Peer ports stay public so other
+		// nodes can connect. Override with --ports.
+		Ports:    []string{"127.0.0.1:8545:8545", "30303:30303", "30303:30303/udp"},
 		Volumes:  []string{},
 		Networks: []string{"ethereum-classic-net"},
 		NetworkDefs: map[string]NetworkDetails{
@@ -89,7 +93,7 @@ func GetEthereumClassicNetworkComposeConfig(network string) (NetworkConfig, erro
 				Driver: "bridge",
 			},
 		}
-		baseConfig.Ports = []string{"8546:8546", "30304:30304", "30304:30304/udp"}
+		baseConfig.Ports = []string{"127.0.0.1:8546:8546", "30304:30304", "30304:30304/udp"}
 		baseConfig.Volumes = []string{fmt.Sprintf("%s:/node/core-geth", localChainDataPath)}
 		baseConfig.VolumeDefs = map[string]VolumeDetails{
 			"core-geth-testnet-data": {

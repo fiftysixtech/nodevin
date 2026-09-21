@@ -184,3 +184,80 @@ func TestRegistryRPCPortIsPublished(t *testing.T) {
 		})
 	}
 }
+
+// publishedBinds maps each published host port ("5001/tcp") to the interface
+// it is bound on ("" means all interfaces).
+func publishedBinds(t *testing.T, cfg NetworkConfig) map[string]string {
+	t.Helper()
+	out := make(map[string]string)
+	for _, p := range cfg.Ports {
+		spec, proto := p, "tcp"
+		if i := strings.Index(p, "/"); i >= 0 {
+			spec, proto = p[:i], p[i+1:]
+		}
+		parts := strings.Split(spec, ":")
+		if len(parts) < 2 {
+			t.Fatalf("port mapping %q is not host:container", p)
+		}
+		bind := ""
+		if len(parts) == 3 {
+			bind = parts[0]
+		}
+		out[parts[len(parts)-2]+"/"+proto] = bind
+	}
+	return out
+}
+
+// networksWithPublicByDesign are exempt from the loopback-only RPC rule.
+var networksWithPublicByDesign = map[string]string{
+	"ord":                  "web explorer meant to be browsed",
+	"ord-testnet":          "web explorer meant to be browsed",
+	"ord-litecoin":         "web explorer meant to be browsed",
+	"ord-litecoin-testnet": "web explorer meant to be browsed",
+	"ipfs-cluster":         "REST API on 9094 has not been reviewed; still published on all interfaces",
+}
+
+// TestRPCPortsArePublishedOnLoopbackOnly asserts every network's RPC port (the
+// registry's RPCPort) is published on 127.0.0.1 only, while at least one peer
+// port stays public so the node can be reached by other nodes. RPC ports are
+// admin-level APIs; for the Bitcoin family they are protected only by a shared
+// password over plain HTTP, with --rpcallowip=0.0.0.0/0 inside the container.
+// A new chain must either follow this or be added to networksWithPublicByDesign
+// with a reason.
+func TestRPCPortsArePublishedOnLoopbackOnly(t *testing.T) {
+	viper.Set("data-dir", t.TempDir())
+	t.Cleanup(func() { viper.Set("data-dir", "") })
+
+	for _, row := range networkBuilders {
+		if reason, exempt := networksWithPublicByDesign[row.network]; exempt {
+			t.Logf("%s exempt: %s", row.network, reason)
+			continue
+		}
+		t.Run(row.network, func(t *testing.T) {
+			cfg, err := row.builder(row.network)
+			if err != nil {
+				t.Fatal(err)
+			}
+			binds := publishedBinds(t, cfg)
+
+			rpc := fmt.Sprintf("%d/tcp", utils.NetworkDefaultRPCPorts()[row.network])
+			bind, ok := binds[rpc]
+			if !ok {
+				t.Fatalf("RPC port %s is not published (publishes %v)", rpc, cfg.Ports)
+			}
+			if bind != "127.0.0.1" {
+				t.Errorf("RPC port %s is published on %q, want 127.0.0.1 (mappings: %v)", rpc, bind, cfg.Ports)
+			}
+
+			public := false
+			for port, b := range binds {
+				if port != rpc && b == "" {
+					public = true
+				}
+			}
+			if !public {
+				t.Errorf("no peer port is published on all interfaces, so other nodes could not connect (mappings: %v)", cfg.Ports)
+			}
+		})
+	}
+}
