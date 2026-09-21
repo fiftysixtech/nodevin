@@ -128,6 +128,13 @@ jobs:
   e2e-cli:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # "stock" is a plain Docker Engine + Compose v2 plugin install;
+        # "shim" adds a docker-compose wrapper so the rest of the CLI can be
+        # exercised even where `docker-compose` is missing.
+        docker_compose: [stock, shim]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -146,10 +153,18 @@ jobs:
           docker compose version || true
           if command -v docker-compose >/dev/null; then docker-compose --version; else echo "docker-compose (v1 binary): NOT INSTALLED"; fi
 
+      - name: Install a docker-compose shim
+        if: matrix.docker_compose == 'shim'
+        run: |
+          printf '#!/bin/sh\nexec docker compose "$@"\n' | sudo tee /usr/local/bin/docker-compose >/dev/null
+          sudo chmod +x /usr/local/bin/docker-compose
+          docker-compose --version
+
       # Drives the real CLI. Every command is recorded so one run shows all
       # failures; the step fails at the end if any command failed.
       - name: Real CLI - init, start, info, logs, stop, delete (ipfs)
         run: |
+          set +e
           NV="$RUNNER_TEMP/nodevin"
           DIR="$RUNNER_TEMP/nv-data"
           mkdir -p "$DIR"
@@ -165,7 +180,7 @@ jobs:
           run "nodevin list"           "$NV" list
           run "nodevin init (no tty)"  "$NV" init < /dev/null
           run "nodevin start ipfs"     "$NV" start ipfs --data-dir "$DIR"
-          for i in $(seq 1 45); do docker logs ipfs 2>&1 | grep -q "Daemon is ready" && break; sleep 2; done
+          for i in $(seq 1 30); do docker logs ipfs 2>&1 | grep -q "Daemon is ready" && break; sleep 2; done
           run "container is running"   docker inspect -f '{{.State.Running}}' ipfs
           run "nodevin info"           "$NV" info --data-dir "$DIR"
           run "nodevin logs ipfs"      "$NV" logs ipfs --tail 5 --data-dir "$DIR"
