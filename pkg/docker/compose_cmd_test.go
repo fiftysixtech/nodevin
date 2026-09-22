@@ -158,3 +158,41 @@ exit 0`),
 		}
 	})
 }
+
+// TestComposeVersionOutput_HandlesADockerComposeShim is the regression test
+// for the e2e-cli CI job's "shim" leg, which installs a real-world pattern:
+// a file named "docker-compose" that isn't the standalone binary but a
+// compatibility wrapper forwarding to the plugin (`exec docker compose
+// "$@"`). "docker-compose --version" then silently becomes "docker compose
+// --version", which the plugin doesn't understand and answers with its help
+// text instead of a version banner (confirmed for real on that CI run: exit
+// 0, no error, just not what was asked for).
+func TestComposeVersionOutput_HandlesADockerComposeShim(t *testing.T) {
+	log := filepath.Join(t.TempDir(), "calls.log")
+	testutil.FakeBins(t, map[string]string{
+		"docker-compose": recorder("docker-compose", log, `
+if [ "$1" = "--version" ]; then
+  echo "Usage:  docker compose [OPTIONS] COMMAND"
+  echo ""
+  echo "Define and run multi-container applications with Docker"
+  exit 0
+fi
+if [ "$1" = "version" ]; then
+  echo "Docker Compose version v5.5.1"
+  exit 0
+fi`),
+	})
+
+	out, err := ComposeVersionOutput()
+	if err != nil {
+		t.Fatalf("ComposeVersionOutput() error: %v", err)
+	}
+	if !strings.Contains(out, "v5.5.1") {
+		t.Errorf("output = %q, want the version banner from the bare 'version' fallback", out)
+	}
+
+	calls, _ := os.ReadFile(log)
+	if !strings.Contains(string(calls), "docker-compose --version") || !strings.Contains(string(calls), "docker-compose version") {
+		t.Errorf("expected both --version and the version fallback to be tried, calls:\n%s", calls)
+	}
+}
