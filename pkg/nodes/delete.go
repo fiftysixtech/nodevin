@@ -27,6 +27,7 @@ import (
 
 	"github.com/fiftysixcrypto/nodevin/internal/logger"
 	"github.com/fiftysixcrypto/nodevin/internal/utils"
+	"github.com/fiftysixcrypto/nodevin/pkg/docker"
 	"github.com/spf13/cobra"
 )
 
@@ -82,7 +83,7 @@ func deleteNetworkDirectory(baseDir, networkName string) error {
 		return err
 	}
 
-	if err := os.RemoveAll(networkDir); err != nil {
+	if err := docker.ForceRemoveAll(networkDir); err != nil {
 		return fmt.Errorf("failed to remove data for network %s: %w", networkName, err)
 	}
 
@@ -105,7 +106,7 @@ func deleteAllDirectories(baseDir string) error {
 	}
 
 	// Remove the entire nodevinDataDir directory
-	if err := os.RemoveAll(baseDir); err != nil {
+	if err := docker.ForceRemoveAll(baseDir); err != nil {
 		return fmt.Errorf("failed to remove all directories: %w", err)
 	}
 
