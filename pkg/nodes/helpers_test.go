@@ -148,6 +148,14 @@ func TestFormatPorts(t *testing.T) {
 		{"multiple distinct ports keep order", "0.0.0.0:8332->8332/tcp, 0.0.0.0:8333->8333/tcp", "8332, 8333"},
 		{"tcp and udp on the same port collapse", "0.0.0.0:30303->30303/tcp, 0.0.0.0:30303->30303/udp", "30303"},
 		{"port range", "0.0.0.0:4001-4002->4001-4002/tcp", "4001-4002"},
+		// Regression: a loopback-bound port (introduced by publishing RPC/API
+		// ports as 127.0.0.1:PORT:PORT in #24/#25) used to have its host-IP
+		// octets misread as extra ports, e.g. "127.0.0.1:5001->5001/tcp"
+		// produced "127, 1, 5001" instead of just "5001". Captured verbatim
+		// from a real `docker ps` on a running ipfs container.
+		{"loopback-bound port", "127.0.0.1:5001->5001/tcp", "5001"},
+		{"real ipfs container: mixed loopback and public ports", "127.0.0.1:5001->5001/tcp, 0.0.0.0:4001->4001/tcp, 127.0.0.1:8080->8080/tcp", "5001, 4001, 8080"},
+		{"unpublished port has no arrow", "4001/tcp", "4001"},
 	}
 
 	for _, c := range cases {

@@ -19,9 +19,9 @@
 package nodes
 
 import (
+	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 
 	"github.com/fiftysixcrypto/nodevin/internal/logger"
 	"github.com/fiftysixcrypto/nodevin/internal/utils"
@@ -43,33 +43,30 @@ var startNodeCmd = &cobra.Command{
 	Use:   "start [network]",
 	Short: "Start a blockchain node",
 	Args:  cobra.MaximumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		startNode(args)
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cmd.SilenceUsage = true
+		return startNode(args)
 	},
 }
 
-func startNode(args []string) {
+func startNode(args []string) error {
 	if len(args) == 0 {
-		logger.LogError("No network provided. Nodevin supports any of the following: " + utils.GetCommandSupportedNetworks())
 		logger.LogInfo(fmt.Sprintf("Example usage: `%s start <network>`", utils.GetNodevinExecutable()))
-
-		return
+		return errors.New("no network provided. Nodevin supports any of the following: " + utils.GetCommandSupportedNetworks())
 	}
 
 	network := args[0]
 
 	containerName, exists := utils.GetFiftysixDockerhubContainerName(network)
 	if !exists {
-		logger.LogError("Unsupported blockchain network: " + network)
-		return
+		return fmt.Errorf("unsupported blockchain network: %s", network)
 	}
 
 	logger.LogInfo("Starting blockchain node for network: " + network)
 
 	// Initialize Docker client
 	if err := docker.InitDockerClient(); err != nil {
-		logger.LogError("Failed to initialize Docker client: " + err.Error())
-		return
+		return fmt.Errorf("failed to initialize Docker client: %w", err)
 	}
 
 	version := viper.GetString("version")
@@ -79,21 +76,19 @@ func startNode(args []string) {
 	image := containerName + ":" + version
 
 	if err := docker.PullImage(image); err != nil {
-		logger.LogError("Failed to pull Docker image: " + err.Error())
-		return
+		return fmt.Errorf("failed to pull Docker image: %w", err)
 	}
 
 	// Get current working directory
 	cwd, err := os.Getwd()
 	if err != nil {
-		logger.LogError("failed to get current working directory: " + err.Error())
-		return
+		return fmt.Errorf("failed to get current working directory: %w", err)
 	}
 
 	// Create env file for chain compose
 	composeFilePath, err := createComposeFileForNetwork(network, cwd)
 	if err != nil {
-		logger.LogError("Failed to create node docker compose file: " + err.Error())
+		return fmt.Errorf("failed to create node docker compose file: %w", err)
 	}
 
 	// Print out warning info for chain size and snapshot sync timing
@@ -172,13 +167,15 @@ func startNode(args []string) {
 	}
 
 	// Start the node
-	cmd := exec.Command("docker-compose", "-f", composeFilePath, "up", "-d")
+	cmd, err := docker.ComposeCommand("-f", composeFilePath, "up", "-d")
+	if err != nil {
+		return err
+	}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		logger.LogError("Failed to start Docker Compose services: " + err.Error())
-		return
+		return fmt.Errorf("failed to start Docker Compose services: %w", err)
 	}
 
 	logger.LogInfo("Cleaning up excess containers and volumes...")
@@ -193,6 +190,7 @@ func startNode(args []string) {
 	startMessage, _ := utils.GetStartMessage(network)
 
 	fmt.Printf("\n%s\n", startMessage)
+	return nil
 }
 
 func createComposeFileForNetwork(network string, cwd string) (string, error) {

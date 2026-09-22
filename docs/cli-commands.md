@@ -8,6 +8,8 @@ Nodevin is a command-line interface (CLI) that simplifies the setup, management,
 
 **Note**: On Windows, commands should be written as `nodevin.exe <command>`, not `nodevin <command>`. For example, `nodevin.exe init`.
 
+**Note**: every command exits with a non-zero status and prints an error if it fails (for example, an unsupported network, or Docker Compose not being available), so scripts and CI can check `$?` after running nodevin.
+
 ### Getting Started
 - [nodevin init](#nodevin-init)
 - [nodevin list](#nodevin-list)
@@ -81,6 +83,22 @@ Nodevin is a command-line interface (CLI) that simplifies the setup, management,
 *Default*: `latest`
 *Usage*: `--ord-version=<tag>`
 
+- **`--ord-cookie-auth`**
+
+*Description*: (ord only) Use authentication directly with the Bitcoin node's cookie file, instead of `--ord-rpc-user`/`--ord-rpc-pass`.
+*Default*: `false`
+*Usage*: `--ord-cookie-auth`
+
+- **`--ord-rpc-user`**
+
+*Description*: (ord only) Username `ord` uses for the Bitcoin JSON-RPC connection. Falls back to `user` if unset.
+*Usage*: `--ord-rpc-user=<username>`
+
+- **`--ord-rpc-pass`**
+
+*Description*: (ord only) Password `ord` uses for the Bitcoin JSON-RPC connection. Falls back to `fiftysix` if unset.
+*Usage*: `--ord-rpc-pass=<password>`
+
 - **`--ord-litecoin`**
 
 *Description*: Runs ordinal software `ord` alongside the Litecoin node.
@@ -98,6 +116,22 @@ Nodevin is a command-line interface (CLI) that simplifies the setup, management,
 *Description*: Version of the Docker image to use for `ord-litecoin`.
 *Default*: `latest`
 *Usage*: `--ord-litecoin-version=<tag>`
+
+- **`--ord-litecoin-cookie-auth`**
+
+*Description*: (ord-litecoin only) Use authentication directly with the Litecoin node's cookie file, instead of `--ord-litecoin-rpc-user`/`--ord-litecoin-rpc-pass`.
+*Default*: `false`
+*Usage*: `--ord-litecoin-cookie-auth`
+
+- **`--ord-litecoin-rpc-user`**
+
+*Description*: (ord-litecoin only) Username `ord-litecoin` uses for the Litecoin JSON-RPC connection. Falls back to `--ord-rpc-user`, then `user`, if unset.
+*Usage*: `--ord-litecoin-rpc-user=<username>`
+
+- **`--ord-litecoin-rpc-pass`**
+
+*Description*: (ord-litecoin only) Password `ord-litecoin` uses for the Litecoin JSON-RPC connection. Falls back to `--ord-rpc-pass`, then `fiftysix`, if unset.
+*Usage*: `--ord-litecoin-rpc-pass=<password>`
 
 *Note on ord web ports*: each `ord` instance publishes its web interface on its own host port so several can run at once: `ord` on `80`, `ord` (testnet) on `8081`, `ord-litecoin` on `8082`, and `ord-litecoin` (testnet) on `8083`. Override with `--ports`.
 
@@ -175,13 +209,13 @@ Nodevin is a command-line interface (CLI) that simplifies the setup, management,
 
 - **`--snapshot-sync`**
 
-*Description*: Starts a node by downloading data from a snapshot.
+*Description*: Starts a node by downloading data from a snapshot. **Currently disabled** — the flag is accepted but has no effect; the node syncs from genesis regardless.
 *Default*: `false`
 *Usage*: `--snapshot-sync`
 
 - **`--snapshot-sync-command`**
 
-*Description*: Runs a custom command for snapshot sync before the node starts (e.g., download and setup).
+*Description*: Runs a custom command for snapshot sync before the node starts (e.g., download and setup). **Currently disabled**, same as `--snapshot-sync` above.
 *Usage*: `--snapshot-sync-command="<command>"`
 
 - **`--data-dir`**
@@ -189,6 +223,8 @@ Nodevin is a command-line interface (CLI) that simplifies the setup, management,
 *Description*: Specifies the directory where nodevin and blockchain data will be stored.
 *Usage*: `--data-dir="<file-path>"`
 *Example*: `nodevin --data-dir="~/Desktop" start ipfs`
+
+*Important*: if you use `--data-dir` with `start`, pass the same `--data-dir` to every later `stop`, `delete`, `logs`, `info`, and `view` for that node — nodevin looks for the node's compose file there. Without it, those commands fall back to `~/.nodevin` and will not find a node started elsewhere.
 
 #### Docker & Container Options:
 
@@ -457,7 +493,7 @@ nodevin request bitcoin --method getblockheader --params '["00000000c937983704a7
 
 ### `nodevin delete`
 
-- **Description**: Deletes local blockchain data associated with a specific network.
+- **Description**: Deletes local blockchain data associated with a specific network. `delete` stops the node first; if it is still running afterward (for example because the node's `--data-dir` was not also passed to `delete`), it refuses to remove the data and exits with an error rather than deleting a running node's files.
 - **Simple Example**: `nodevin delete bitcoin`
 
 #### Options:
@@ -498,6 +534,8 @@ Nodevin will look for the `.env` file in the following locations, in order of pr
 2. **User-Specific Directory**: `~/.nodevin/.env` (e.g., `/home/user/.nodevin/.env` on Linux or `C:\Users\YourUser\.nodevin\.env` on Windows).
 3. **Global Configuration Directory**: `/etc/nodevin/.env`.
 4. **Executable Directory**: The directory containing the Nodevin binary (e.g., `/usr/local/bin/.env`).
+
+Only the first `.env` file found is used; its values are not merged with any of the others. Keys are flag names without the leading `--` (e.g. `rpc-user`, `data-dir`); `RPC_USER` and `rpc_user` are also accepted and treated the same as `rpc-user`. Values may be unquoted, double-quoted, or single-quoted, and an unquoted value may end in a `# comment`. Flags that take a comma-separated list on the command line (`--ports`, `--volumes`, `--volume-definitions`, `--docker-networks`) accept the same comma-separated form here, and `--volume-labels` accepts `key=value` pairs separated by commas. A line that cannot be parsed is skipped with a warning; it does not prevent the rest of the file from loading.
 
 ### Example `.env` File
 

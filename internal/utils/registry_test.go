@@ -19,6 +19,8 @@
 package utils
 
 import (
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
@@ -246,4 +248,71 @@ func TestIsSupportedExtendedInfoSoftware(t *testing.T) {
 			t.Errorf("IsSupportedExtendedInfoSoftware(%q) = %v, want %v", software, got, want)
 		}
 	}
+}
+
+func TestFindComposeFile(t *testing.T) {
+	dataParent := t.TempDir()
+	viper.Set("data-dir", dataParent)
+	t.Cleanup(func() { viper.Set("data-dir", "") })
+
+	dataDir, err := GetNodevinDataDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("finds the file in the configured data dir", func(t *testing.T) {
+		want := filepath.Join(dataDir, "docker-compose_ipfs.yml")
+		if err := os.WriteFile(want, []byte("services: {}\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		got, err := FindComposeFile("ipfs")
+		if err != nil {
+			t.Fatalf("FindComposeFile() error: %v", err)
+		}
+		if got != want {
+			t.Errorf("FindComposeFile() = %q, want %q", got, want)
+		}
+	})
+
+	t.Run("does not look in the default home data dir when --data-dir is set", func(t *testing.T) {
+		if _, err := FindComposeFile("no-such-node"); err == nil {
+			t.Fatal("expected an error for a compose file that does not exist")
+		}
+	})
+
+	t.Run("the error says how to fix it", func(t *testing.T) {
+		_, err := FindComposeFile("no-such-node")
+		if err == nil {
+			t.Fatal("expected an error")
+		}
+		for _, want := range []string{"docker-compose_no-such-node.yml", "--data-dir", dataDir} {
+			if !strings.Contains(err.Error(), want) {
+				t.Errorf("error %q should mention %q", err, want)
+			}
+		}
+	})
+
+	t.Run("falls back to the current directory for files older versions wrote there", func(t *testing.T) {
+		cwd := t.TempDir()
+		old, _ := os.Getwd()
+		if err := os.Chdir(cwd); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { os.Chdir(old) })
+
+		want := filepath.Join(cwd, "docker-compose_legacy.yml")
+		if err := os.WriteFile(want, []byte("services: {}\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		got, err := FindComposeFile("legacy")
+		if err != nil {
+			t.Fatalf("FindComposeFile() error: %v", err)
+		}
+		// t.TempDir on macOS is under a symlinked /var, so compare resolved paths.
+		gotResolved, _ := filepath.EvalSymlinks(got)
+		wantResolved, _ := filepath.EvalSymlinks(want)
+		if gotResolved != wantResolved {
+			t.Errorf("FindComposeFile() = %q, want %q", got, want)
+		}
+	})
 }

@@ -19,6 +19,7 @@
 package nodes
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -35,21 +36,20 @@ var logsCmd = &cobra.Command{
 	Use:   "logs [network]",
 	Short: "Fetch logs from a running node",
 	Args:  cobra.MaximumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cmd.SilenceUsage = true
+
 		if len(args) == 0 {
-			logger.LogError("No network specified. To fetch logs, specify the network explicitly.")
-			availableNetworks := utils.GetCommandSupportedNetworks()
-			logger.LogInfo("List of available networks: " + availableNetworks)
+			logger.LogInfo("List of available networks: " + utils.GetCommandSupportedNetworks())
 			logger.LogInfo(fmt.Sprintf("Example usage: `%s logs <network>`", utils.GetNodevinExecutable()))
-			return
+			return errors.New("no network specified. To fetch logs, specify the network explicitly")
 		}
 
-		network := args[0]
-		fetchLogs(network)
+		return fetchLogs(args[0])
 	},
 }
 
-func fetchLogs(network string) {
+func fetchLogs(network string) error {
 	logger.LogInfo("Fetching logs for node...")
 
 	properNetwork := network
@@ -64,8 +64,7 @@ func fetchLogs(network string) {
 
 	containerName, exists := getOutputLogsContainerName(properNetwork)
 	if !exists {
-		logger.LogError("Unsupported blockchain network: " + network)
-		return
+		return fmt.Errorf("unsupported blockchain network: %s", network)
 	}
 
 	args := []string{"logs"}
@@ -82,8 +81,9 @@ func fetchLogs(network string) {
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		logger.LogError("Failed to fetch Docker logs: " + err.Error())
+		return fmt.Errorf("failed to fetch Docker logs: %w", err)
 	}
+	return nil
 }
 
 func getOutputLogsContainerName(network string) (string, bool) {

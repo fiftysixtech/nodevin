@@ -434,20 +434,36 @@ func getDirectorySize(path string) (int64, error) {
 	return size, err
 }
 
+// publishedPortRe matches the container-side port (and range) of a published
+// mapping, e.g. "0.0.0.0:8332->8332/tcp" or "127.0.0.1:5001->5001/tcp" -> 8332,
+// 5001. unpublishedPortRe matches a bare, unpublished port/range like
+// "4001/tcp". Matching only these positions (not every digit run in the
+// segment) is what keeps a loopback IP's octets -- "127", "0", "0", "1" in
+// "127.0.0.1:5001->..." -- from being misread as ports.
+var (
+	publishedPortRe   = regexp.MustCompile(`->(\d+(?:-\d+)?)/`)
+	unpublishedPortRe = regexp.MustCompile(`^(\d+(?:-\d+)?)/`)
+)
+
 func formatPorts(ports string) string {
-	portSegments := strings.Split(ports, ",")
 	formattedPorts := []string{}
 	uniquePorts := make(map[string]bool)
 
-	for _, segment := range portSegments {
-		// Use a regex to extract the port numbers and ranges
-		re := regexp.MustCompile(`(\d+(-\d+)?)`)
-		matches := re.FindAllString(segment, -1)
-		for _, match := range matches {
-			if match != "0" && !uniquePorts[match] {
-				uniquePorts[match] = true
-				formattedPorts = append(formattedPorts, match)
-			}
+	for _, segment := range strings.Split(ports, ",") {
+		segment = strings.TrimSpace(segment)
+
+		match := ""
+		if m := publishedPortRe.FindStringSubmatch(segment); m != nil {
+			match = m[1]
+		} else if m := unpublishedPortRe.FindStringSubmatch(segment); m != nil {
+			match = m[1]
+		} else {
+			continue
+		}
+
+		if !uniquePorts[match] {
+			uniquePorts[match] = true
+			formattedPorts = append(formattedPorts, match)
 		}
 	}
 	return strings.Join(formattedPorts, ", ")
