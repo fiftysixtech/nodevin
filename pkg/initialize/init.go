@@ -2,6 +2,7 @@ package initialize
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/fiftysixcrypto/nodevin/internal/logger"
 	"github.com/fiftysixcrypto/nodevin/internal/version"
+	"github.com/fiftysixcrypto/nodevin/pkg/docker"
 	"github.com/spf13/cobra"
 )
 
@@ -21,8 +23,9 @@ var skipPrompt bool
 var InitCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Initialize nodevin and check system capabilities",
-	Run: func(cmd *cobra.Command, args []string) {
-		runInit()
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cmd.SilenceUsage = true
+		return runInit()
 	},
 }
 
@@ -30,7 +33,7 @@ func init() {
 	InitCmd.Flags().BoolVarP(&skipPrompt, "yes", "y", false, "Automatically confirm all prompts")
 }
 
-func runInit() {
+func runInit() error {
 	fmt.Println("")
 	fmt.Printf("Welcome to nodevin v%s!\n", version.Version)
 	fmt.Println("Nodevin makes running blockchain nodes more accessible.")
@@ -48,8 +51,7 @@ func runInit() {
 		if skipPrompt {
 			fmt.Println("Skipping prompt and proceeding with Docker and Docker Compose installation...")
 			if err := installDockerAndCompose(); err != nil {
-				logger.LogError("Failed to install Docker and Docker Compose: " + err.Error())
-				return
+				return fmt.Errorf("failed to install Docker and Docker Compose: %w", err)
 			}
 		} else {
 			// Ask the user if they want to install Docker and Docker Compose
@@ -61,12 +63,11 @@ func runInit() {
 			// Check user response
 			if input == "y" {
 				if err := installDockerAndCompose(); err != nil {
-					logger.LogError("Failed to install Docker and Docker Compose: " + err.Error())
-					return
+					return fmt.Errorf("failed to install Docker and Docker Compose: %w", err)
 				}
 			} else {
 				fmt.Println("Canceling docker installation.")
-				return
+				return errors.New("Docker and Docker Compose are required but not available")
 			}
 		}
 	}
@@ -78,6 +79,7 @@ func runInit() {
 	// outro
 	fmt.Println("It's time to start your own Bitcoin node. Run `nodevin start bitcoin` to get started.")
 	fmt.Println("Thank you for using nodevin!")
+	return nil
 }
 
 func performInspection() error {
@@ -123,13 +125,12 @@ func checkDockerVersion() error {
 }
 
 func checkDockerComposeVersion() error {
-	cmd := exec.Command("docker-compose", "--version")
-	output, err := cmd.CombinedOutput()
+	output, err := docker.ComposeVersionOutput()
 	if err != nil {
 		return fmt.Errorf("failed to check Docker Compose version: %w", err)
 	}
 
-	versionInfo := string(output)
+	versionInfo := output
 	fmt.Print(versionInfo)
 
 	re := regexp.MustCompile(`(\d+)\.(\d+)\.(\d+)`)

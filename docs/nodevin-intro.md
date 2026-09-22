@@ -11,7 +11,7 @@ Nodevin is a **Command-Line Interface (CLI) tool**. This means it doesn't have a
 1. **Check System Requirements**
    - **OS**: Linux, macOS, Windows (64-bit)
    - **Docker**: Version 20+ ([Get Docker](https://docs.docker.com/get-docker/))
-   - **Docker Compose**: Included with latest versions of Docker
+   - **Docker Compose**: Nodevin works with either the `docker compose` plugin (bundled with Docker Desktop, and with `docker-compose-plugin` on most current Linux installs) or the older standalone `docker-compose` binary. A plain Docker Engine install on Linux may have neither by default; install one of the two.
    - **CPU**: (Depends on blockchain)
    - **RAM**: (Depends on blockchain)
    - **Storage**: (Depends on blockchain)
