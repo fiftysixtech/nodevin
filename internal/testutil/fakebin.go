@@ -20,7 +20,6 @@
 package testutil
 
 import (
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -73,7 +72,7 @@ func FakeBins(t *testing.T, scripts map[string]string) string {
 		if _, ok := scripts[name]; ok {
 			continue // the test wants its own fake for this one
 		}
-		copyExecutable(t, name, dir)
+		linkExecutable(t, name, dir)
 	}
 
 	var kept []string
@@ -94,30 +93,25 @@ func FakeBins(t *testing.T, scripts map[string]string) string {
 	return dir
 }
 
-// copyExecutable resolves name on the test process's real, original PATH and
-// copies it into dir, so it is available from dir regardless of what happens
-// to the rest of PATH afterward.
-func copyExecutable(t *testing.T, name, dir string) {
+// linkExecutable resolves name on the test process's real, original PATH and
+// symlinks it into dir, so it is available from dir regardless of what
+// happens to the rest of PATH afterward. A symlink, not a byte copy: macOS
+// kills a raw copy of a system binary like `cat` on exec (code-signing
+// enforcement doesn't follow a copy to a new path the way it follows a
+// symlink to the original, still-trusted file).
+func linkExecutable(t *testing.T, name, dir string) {
 	t.Helper()
 
 	src, err := exec.LookPath(name)
 	if err != nil {
-		t.Fatalf("FakeBins needs a real %q on PATH to copy for the fake scripts, but none was found: %v", name, err)
+		t.Fatalf("FakeBins needs a real %q on PATH to link for the fake scripts, but none was found: %v", name, err)
 	}
-
-	in, err := os.Open(src)
+	src, err = filepath.Abs(src)
 	if err != nil {
-		t.Fatalf("failed to open %s: %v", src, err)
+		t.Fatalf("failed to resolve %s to an absolute path: %v", src, err)
 	}
-	defer in.Close()
 
-	out, err := os.OpenFile(filepath.Join(dir, name), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
-	if err != nil {
-		t.Fatalf("failed to create fake-dir copy of %s: %v", name, err)
-	}
-	defer out.Close()
-
-	if _, err := io.Copy(out, in); err != nil {
-		t.Fatalf("failed to copy %s into the fake dir: %v", name, err)
+	if err := os.Symlink(src, filepath.Join(dir, name)); err != nil {
+		t.Fatalf("failed to link %s into the fake dir: %v", name, err)
 	}
 }
