@@ -311,6 +311,35 @@ func GetNodevinDataDir() (string, error) {
 	return nodevinDataDir, nil
 }
 
+// FindComposeFile locates the docker-compose file nodevin generated for a
+// container ("docker-compose_<container>.yml"). It looks in the nodevin data
+// directory first, which honors --data-dir, then in the directory of the
+// nodevin executable and the current directory, where older versions wrote
+// them.
+func FindComposeFile(containerName string) (string, error) {
+	fileName := fmt.Sprintf("docker-compose_%s.yml", containerName)
+
+	var dirs []string
+	if dataDir, err := GetNodevinDataDir(); err == nil {
+		dirs = append(dirs, dataDir)
+	}
+	if exe, err := os.Executable(); err == nil {
+		dirs = append(dirs, filepath.Dir(exe))
+	}
+	if cwd, err := os.Getwd(); err == nil {
+		dirs = append(dirs, cwd)
+	}
+
+	for _, dir := range dirs {
+		path := filepath.Join(dir, fileName)
+		if _, err := os.Stat(path); err == nil {
+			return path, nil
+		}
+	}
+
+	return "", fmt.Errorf("could not find %s in %s (if you started the node with --data-dir, pass the same --data-dir here)", fileName, strings.Join(dirs, ", "))
+}
+
 func GetSizeDescription(size int64) string {
 	if size <= 0 {
 		return "unknown (do you have proper permissions?)"

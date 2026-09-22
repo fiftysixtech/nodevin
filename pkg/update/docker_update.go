@@ -31,6 +31,8 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/fiftysixcrypto/nodevin/internal/logger"
+	"github.com/fiftysixcrypto/nodevin/internal/utils"
+	"github.com/fiftysixcrypto/nodevin/pkg/docker"
 )
 
 func CheckAndUpdateDockerImages() error {
@@ -139,10 +141,16 @@ func getLocalImageDigest(cli *client.Client, image string) (string, error) {
 
 func updateDockerImage(container types.Container, image string) error {
 	imageShorthandName := strings.TrimPrefix(container.Names[0], "/")
-	composeFilePath := fmt.Sprintf("docker-compose_%s.yml", imageShorthandName)
+	composeFilePath, err := utils.FindComposeFile(imageShorthandName)
+	if err != nil {
+		return err
+	}
 
 	logger.LogInfo(fmt.Sprintf("Shutting down %s...", imageShorthandName))
-	cmd := exec.Command("docker-compose", "-f", composeFilePath, "down")
+	cmd, err := docker.ComposeCommand("-f", composeFilePath, "down")
+	if err != nil {
+		return err
+	}
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to stop Docker Compose services: %w", err)
 	}
@@ -155,7 +163,10 @@ func updateDockerImage(container types.Container, image string) error {
 	logger.LogInfo(fmt.Sprintf("Successfully pulled latest image for %s", imageShorthandName))
 
 	logger.LogInfo(fmt.Sprintf("Starting %s back up on latest version...", imageShorthandName))
-	cmd = exec.Command("docker-compose", "-f", composeFilePath, "up", "-d")
+	cmd, err = docker.ComposeCommand("-f", composeFilePath, "up", "-d")
+	if err != nil {
+		return err
+	}
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to start Docker Compose services: %w", err)
 	}

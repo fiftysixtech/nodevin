@@ -173,5 +173,9 @@ func init() {
 
 func Execute() error {
 	rootCmd.AddCommand(versionCmd)
+
+	// main logs the returned error and exits non-zero; cobra printing it as
+	// well would show every failure twice.
+	rootCmd.SilenceErrors = true
 	return rootCmd.Execute()
 }

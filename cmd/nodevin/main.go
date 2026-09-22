@@ -19,6 +19,8 @@
 package main
 
 import (
+	"os"
+
 	"github.com/fiftysixcrypto/nodevin/internal/config"
 	"github.com/fiftysixcrypto/nodevin/internal/logger"
 	"github.com/fiftysixcrypto/nodevin/pkg/root"
@@ -34,5 +36,6 @@ func main() {
 	// Execute the root command
 	if err := root.Execute(); err != nil {
 		logger.LogError(err.Error())
+		os.Exit(1)
 	}
 }

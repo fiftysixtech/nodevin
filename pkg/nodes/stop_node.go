@@ -2,14 +2,15 @@ package nodes
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
 	"github.com/fiftysixcrypto/nodevin/internal/logger"
 	"github.com/fiftysixcrypto/nodevin/internal/utils"
+	"github.com/fiftysixcrypto/nodevin/pkg/docker"
 	"github.com/spf13/cobra"
 )
 
@@ -17,103 +18,97 @@ var stopNodeCmd = &cobra.Command{
 	Use:   "stop [network]",
 	Short: "Stop a blockchain node",
 	Args:  cobra.MaximumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) == 0 {
-			logger.LogError("No network specified. To stop a node, specify the network explicitly.")
-			logger.LogInfo("")
-			availableNetworks := utils.GetCommandSupportedNetworks()
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cmd.SilenceUsage = true
 
-			logger.LogInfo("List of available networks: " + availableNetworks)
+		if len(args) == 0 {
+			logger.LogInfo("List of available networks: " + utils.GetCommandSupportedNetworks())
 			logger.LogInfo(fmt.Sprintf("Example usage: `%s stop <network>`", utils.GetNodevinExecutable()))
 			logger.LogInfo(fmt.Sprintf("Example usage: `%s stop <network> --testnet`", utils.GetNodevinExecutable()))
 			logger.LogInfo(fmt.Sprintf("Example usage: `%s stop all`", utils.GetNodevinExecutable()))
-			return
+			return errors.New("no network specified. To stop a node, specify the network explicitly")
 		}
 
-		network := args[0]
-		if network == "all" {
-			stopAllNodes()
-		} else {
-			stopNode(network)
+		if args[0] == "all" {
+			return stopAllNodes()
 		}
+		return stopNode(args[0])
 	},
 }
 
-func stopNode(network string) {
+// stopNode stops the node for network using the compose file nodevin generated
+// for it, wherever --data-dir put it. Stopping a node that is not running is
+// not an error.
+func stopNode(network string) error {
 	logger.LogInfo("Stopping blockchain node...")
 
 	containerName, exists := utils.GetDefaultLocalMappedContainerName(network)
 	if !exists {
-		logger.LogError("Unsupported blockchain network: " + network)
-		return
+		return fmt.Errorf("unsupported blockchain network: %s", network)
 	}
 
-	// Get the user's home directory in a cross-platform manner
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		logger.LogError(fmt.Sprintf("Failed to determine home directory: %s", err))
-		return
-	}
-
-	var composeCreateDir string
-
-	// Check if ~/.nodevin exists
-	nodevinDir := filepath.Join(homeDir, ".nodevin", "data")
-	if _, err := os.Stat(nodevinDir); err == nil {
-		composeCreateDir = nodevinDir
-	} else if !os.IsNotExist(err) {
-		logger.LogError(fmt.Sprintf("Error accessing ~/.nodevin: %s", err))
-	}
-
-	// Fallback to nodevin executable directory if ~/.nodevin does not exist
-	if composeCreateDir == "" {
-		composeCreatePath, err := os.Executable()
-		if err != nil {
-			cwd, wdErr := os.Getwd()
-			if wdErr != nil {
-				logger.LogError("Unable to determine executable or working directory")
-				return
-			}
-			composeCreateDir = cwd
-		} else {
-			// Use the directory where the executable is located
-			composeCreateDir = filepath.Dir(composeCreatePath)
-		}
-	}
-
-	composeFileName := fmt.Sprintf("docker-compose_%s.yml", containerName)
 	if utils.CheckIfTestnetOrTestnetNetworkFlag() {
-		composeFileName = fmt.Sprintf("docker-compose_%s.yml", containerName+"-testnet")
+		containerName = containerName + "-testnet"
 	}
 
-	composeFilePath := filepath.Join(composeCreateDir, composeFileName)
+	composeFilePath, err := utils.FindComposeFile(containerName)
+	if err != nil {
+		return err
+	}
 
 	// Check if there are any running containers for this compose file
-	psCmd := exec.Command("docker-compose", "-f", composeFilePath, "ps", "-q")
+	psCmd, err := docker.ComposeCommand("-f", composeFilePath, "ps", "-q")
+	if err != nil {
+		return err
+	}
 	psOut, err := psCmd.Output()
 	if err != nil {
-		logger.LogError("Failed to find Docker Compose services: " + err.Error())
-		return
+		return fmt.Errorf("failed to find Docker Compose services: %w", err)
 	}
 
 	if len(psOut) == 0 {
 		logger.LogInfo("No running containers found for the specified network (did you mean to add --testnet?)")
-		return
+		return nil
 	}
 
-	cmd := exec.Command("docker-compose", "-f", composeFilePath, "down")
+	cmd, err := docker.ComposeCommand("-f", composeFilePath, "down")
+	if err != nil {
+		return err
+	}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		logger.LogError("Failed to stop Docker Compose services: " + err.Error())
-		return
+		return fmt.Errorf("failed to stop Docker Compose services: %w", err)
 	}
 
 	logger.LogInfo("Blockchain node stopped successfully.")
+	return nil
 }
 
-func stopAllNodes() {
+// runningContainers returns which of names are running right now. It returns
+// an error when docker cannot be queried.
+func runningContainers(names []string) ([]string, error) {
+	out, err := exec.Command("docker", "ps", "--format", "{{.Names}}").Output()
+	if err != nil {
+		return nil, err
+	}
+
+	wanted := make(map[string]bool, len(names))
+	for _, name := range names {
+		wanted[name] = true
+	}
+
+	var running []string
+	for _, line := range strings.Split(string(out), "\n") {
+		if name := strings.TrimSpace(line); wanted[name] {
+			running = append(running, name)
+		}
+	}
+	return running, nil
+}
+
+func stopAllNodes() error {
 	logger.LogInfo("Stopping Docker Compose containers...")
 
 	// Get the map of allowed network container names
@@ -133,8 +128,7 @@ func stopAllNodes() {
 	psCmd.Stderr = os.Stderr
 
 	if err := psCmd.Run(); err != nil {
-		logger.LogError("Failed to list running Docker containers: " + err.Error())
-		return
+		return fmt.Errorf("failed to list running Docker containers: %w", err)
 	}
 
 	// Filter containers that match allowed container names
@@ -153,7 +147,7 @@ func stopAllNodes() {
 
 	if len(containerIDs) == 0 {
 		logger.LogInfo("No matching Docker Compose containers found.")
-		return
+		return nil
 	}
 
 	// Stop the containers
@@ -163,8 +157,7 @@ func stopAllNodes() {
 	stopCmd.Stderr = os.Stderr
 
 	if err := stopCmd.Run(); err != nil {
-		logger.LogError("Failed to stop Docker containers: " + err.Error())
-		return
+		return fmt.Errorf("failed to stop Docker containers: %w", err)
 	}
 
 	// Remove the containers
@@ -174,9 +167,9 @@ func stopAllNodes() {
 	rmCmd.Stderr = os.Stderr
 
 	if err := rmCmd.Run(); err != nil {
-		logger.LogError("Failed to remove Docker containers: " + err.Error())
-		return
+		return fmt.Errorf("failed to remove Docker containers: %w", err)
 	}
 
 	logger.LogInfo("Selected Docker Compose containers stopped and removed successfully.")
+	return nil
 }

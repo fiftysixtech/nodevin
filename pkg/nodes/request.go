@@ -21,12 +21,12 @@ package nodes
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 
-	"github.com/fiftysixcrypto/nodevin/internal/logger"
 	"github.com/fiftysixcrypto/nodevin/internal/utils"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -36,7 +36,9 @@ var requestCmd = &cobra.Command{
 	Use:   "request [network]",
 	Short: "Make an RPC request to a node",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cmd.SilenceUsage = true
+
 		network := args[0]
 
 		method := viper.GetString("method")
@@ -48,9 +50,8 @@ var requestCmd = &cobra.Command{
 		pass := viper.GetString("rpc-pass")
 
 		if method == "" {
-			logger.LogError("HTTP method is required.")
 			printUsageAndExample()
-			return
+			return errors.New("HTTP method is required")
 		}
 
 		if endpoint == "" {
@@ -60,16 +61,19 @@ var requestCmd = &cobra.Command{
 		if port == 0 {
 			port = utils.NetworkDefaultRPCPorts()[network]
 		}
+		if port == 0 {
+			return fmt.Errorf("unknown network %q and no --port given", network)
+		}
 
 		url := fmt.Sprintf("%s:%d", endpoint, port)
 
 		response, err := makeRequest(network, url, method, params, headers, user, pass)
 		if err != nil {
-			logger.LogError("Failed to make request: " + err.Error())
-			return
+			return fmt.Errorf("failed to make request: %w", err)
 		}
 
 		fmt.Println(string(response))
+		return nil
 	},
 }
 
