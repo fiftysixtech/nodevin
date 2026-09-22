@@ -21,6 +21,7 @@ package docker
 import (
 	"errors"
 	"os/exec"
+	"regexp"
 )
 
 // ErrComposeNotFound is returned when neither the standalone `docker-compose`
@@ -61,6 +62,10 @@ func ComposeCommand(args ...string) (*exec.Cmd, error) {
 	}
 }
 
+// versionLikeRe matches the kind of x.y.z number a real version banner
+// contains, to tell one apart from a help/usage dump.
+var versionLikeRe = regexp.MustCompile(`\d+\.\d+\.\d+`)
+
 // ComposeVersionOutput returns Docker Compose's own version banner.
 //
 // The standalone binary and the plugin use different invocations to print it
@@ -68,10 +73,22 @@ func ComposeCommand(args ...string) (*exec.Cmd, error) {
 // "--version" as an unrecognized global flag and prints its help text
 // instead), so this cannot be expressed as a plain ComposeCommand("--version")
 // call.
+//
+// Some systems install a `docker-compose` file that isn't the real standalone
+// binary but a compatibility shim forwarding straight to `docker compose`
+// (`exec docker compose "$@"`) — LookPath alone can't tell it apart from the
+// real thing, since both are just an executable named "docker-compose". Such
+// a shim doesn't understand --version either, so if that attempt doesn't look
+// like a version banner, it's retried with the bare "version" subcommand,
+// which works whether "docker-compose" is genuine or a plugin-forwarding
+// shim.
 func ComposeVersionOutput() (string, error) {
 	switch detectCompose() {
 	case composeStandalone:
-		out, err := exec.Command("docker-compose", "--version").CombinedOutput()
+		if out, err := exec.Command("docker-compose", "--version").CombinedOutput(); err == nil && versionLikeRe.Match(out) {
+			return string(out), nil
+		}
+		out, err := exec.Command("docker-compose", "version").CombinedOutput()
 		return string(out), err
 	case composePlugin:
 		out, err := exec.Command("docker", "compose", "version").CombinedOutput()
