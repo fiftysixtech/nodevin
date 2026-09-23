@@ -181,6 +181,77 @@ var networkInfoMap = map[string]NetworkInfo{
 		StartMessage:     "\"Testing is the lifeblood of innovation and security.\"",
 		CommandSupported: false,
 	},
+	// "ethereum" registers as the DEFAULT execution client's container name
+	// ("reth") only. --execution-client lets a user run a different execution
+	// client under the same "ethereum" network name, but this registry can
+	// only ever hold one static ContainerName per key - so `nodevin stop
+	// ethereum`/`nodevin delete ethereum` only resolve correctly for users who
+	// stuck with the default (reth). This is a known limitation of the
+	// current one-name-per-network registry model, not an oversight.
+	"ethereum": {
+		ContainerName:    "reth",
+		DockerHubImage:   "reth",
+		RPCPort:          8547,
+		SnapshotCID:      "",
+		DataSize:         0,
+		SnapshotSize:     0,
+		StartMessage:     "\"Not your keys, not your coins.\" -- Ethereum Community",
+		CommandSupported: true,
+	},
+	// The five consensus clients each get their own registry entry (mirroring
+	// how "ord" is registered despite being bundled with bitcoin) so
+	// `nodevin stop`/`delete` can target a running consensus client
+	// independently of the paired execution client.
+	"lighthouse": {
+		ContainerName:    "lighthouse",
+		DockerHubImage:   "lighthouse",
+		RPCPort:          5052,
+		SnapshotCID:      "",
+		DataSize:         0,
+		SnapshotSize:     0,
+		StartMessage:     "\"Proof of stake is coming.\" -- Ethereum Foundation",
+		CommandSupported: false,
+	},
+	"prysm": {
+		ContainerName:    "prysm",
+		DockerHubImage:   "prysm",
+		RPCPort:          3500,
+		SnapshotCID:      "",
+		DataSize:         0,
+		SnapshotSize:     0,
+		StartMessage:     "\"Proof of stake is coming.\" -- Ethereum Foundation",
+		CommandSupported: false,
+	},
+	"teku": {
+		ContainerName:    "teku",
+		DockerHubImage:   "teku",
+		RPCPort:          5051,
+		SnapshotCID:      "",
+		DataSize:         0,
+		SnapshotSize:     0,
+		StartMessage:     "\"Proof of stake is coming.\" -- Ethereum Foundation",
+		CommandSupported: false,
+	},
+	"nimbus": {
+		ContainerName:    "nimbus",
+		DockerHubImage:   "nimbus",
+		RPCPort:          5052,
+		SnapshotCID:      "",
+		DataSize:         0,
+		SnapshotSize:     0,
+		StartMessage:     "\"Proof of stake is coming.\" -- Ethereum Foundation",
+		CommandSupported: false,
+	},
+	"lodestar": {
+		ContainerName:    "lodestar",
+		DockerHubImage:   "lodestar",
+		RPCPort:          9596,
+		SnapshotCID:      "",
+		DataSize:         0,
+		SnapshotSize:     0,
+		StartMessage:     "\"Proof of stake is coming.\" -- Ethereum Foundation",
+		CommandSupported: false,
+	},
 }
 
 func NetworkContainerMap() map[string]string {

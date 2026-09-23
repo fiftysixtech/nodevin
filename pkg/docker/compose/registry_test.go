@@ -51,6 +51,27 @@ var networkBuilders = []struct {
 	{"ord-testnet", GetOrdNetworkComposeConfig},
 	{"ord-litecoin", GetOrdLitecoinNetworkComposeConfig},
 	{"ord-litecoin-testnet", GetOrdLitecoinNetworkComposeConfig},
+	{"ethereum", GetEthereumNetworkComposeConfig},
+	{"lighthouse", GetLighthouseNetworkComposeConfig},
+	{"prysm", GetPrysmNetworkComposeConfig},
+	{"teku", GetTekuNetworkComposeConfig},
+	{"nimbus", GetNimbusNetworkComposeConfig},
+	{"lodestar", GetLodestarNetworkComposeConfig},
+}
+
+// consensusClients are mutually exclusive alternatives for the same
+// architectural slot (exactly one runs at a time, paired with whichever
+// execution client --execution-client selects) - unlike every other pair of
+// networks in this table, which really can run simultaneously. Their native
+// default ports (e.g. 9000 for P2P, shared by Lighthouse/Teku/Nimbus/Lodestar
+// upstream) collide with each other by design, so TestNoHostPortCollisions
+// allows collisions among ONLY this set.
+var consensusClients = map[string]bool{
+	"lighthouse": true,
+	"prysm":      true,
+	"teku":       true,
+	"nimbus":     true,
+	"lodestar":   true,
 }
 
 // TestRegistryConsistency asserts, for every registered network, that its
@@ -154,9 +175,22 @@ func TestNoHostPortCollisions(t *testing.T) {
 	}
 
 	for port, networks := range owners {
-		if len(networks) > 1 {
-			t.Errorf("host port %s is published by more than one network: %v", port, networks)
+		if len(networks) <= 1 {
+			continue
 		}
+
+		allConsensusClients := true
+		for _, n := range networks {
+			if !consensusClients[n] {
+				allConsensusClients = false
+				break
+			}
+		}
+		if allConsensusClients {
+			continue
+		}
+
+		t.Errorf("host port %s is published by more than one network: %v", port, networks)
 	}
 }
 
