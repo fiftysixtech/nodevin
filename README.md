@@ -4,7 +4,7 @@ Nodevin allows anyone to run blockchain nodes effortlessly. It simplifies the pr
 
 Our goal is to facilitate blockchain node standup and maintenance for every chain in the world, in service of a more decentralized internet.
 
-Nodevin is built and maintained by [Fiftysix](https://fiftysix.xyz), in conjunction with [Kaisersolver](https://kaisersolver.com).
+Nodevin is built and maintained by [Fiftysix](https://fiftysix.tech?utm_source=github&utm_medium=readme&utm_campaign=nodevin), in conjunction with [Kaisersolver](https://kaisersolver.com).
 
 ## Features
 
@@ -113,7 +113,7 @@ This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE
 - [Docker Hub](https://hub.docker.com/u/fiftysix) - All Nodevin images are pulled from here.
 - [node-images](https://github.com/fiftysixtech/node-images) - Source for every Docker image Nodevin uses.
 
-This repository is currently maintained by [Fiftysix](https://fiftysix.xyz).
+This repository is currently maintained by [Fiftysix](https://fiftysix.tech?utm_source=github&utm_medium=readme&utm_campaign=nodevin).
 
 For any questions or suggestions, feel free to contact us at [hello@fiftysix.tech](mailto:hello@fiftysix.tech).
 
