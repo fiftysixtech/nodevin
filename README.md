@@ -1,8 +1,10 @@
 # Nodevin
 
-Nodevin allows anyone to run blockchain nodes effortlessly. It simplifies the process of setting up and managing nodes for various blockchains, ensuring they are always up-to-date with the latest software versions. With Nodevin, you can run nodes for Bitcoin, Litecoin, Dogecoin, Ethereum Classic, and IPFS with ease.
+Nodevin allows anyone to run blockchain nodes effortlessly. It simplifies the process of setting up and managing nodes for various blockchains, ensuring they are always up-to-date with the latest software versions. With Nodevin, you can run nodes for Bitcoin, Litecoin, Dogecoin, Ethereum Classic, and IPFS with ease. Ethereum support is coming soon.
 
-Our goal is to facilitate blockchain node standup and maintenance for every chain in the world.
+Our goal is to facilitate blockchain node standup and maintenance for every chain in the world, in service of a more decentralized internet.
+
+Nodevin is built and maintained by [Fiftysix](https://fiftysix.xyz), in conjunction with Kaisersolver.
 
 ## Features
 
@@ -91,7 +93,7 @@ Snapshot synchronization can save up to **days** of node initialization.
 
 ## Integrating Your Blockchain
 
-Adding your blockchain data to Nodevin requires a small one-time grant. For more information, reach out to us at [business@nodevin.xyz](mailto:business@nodevin.xyz).
+Want your blockchain supported by Nodevin? Reach out to us directly at [hello@fiftysix.tech](mailto:hello@fiftysix.tech) and we'll work with you to get it added.
 
 ### Nodevin Docker Images
 
@@ -107,14 +109,12 @@ This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE
 
 ## Contact
 
-Socials:
-- [Website](https://nodevin.xyz)
-- [Discord](https://discord.com/invite/XuhW2ykW3D)
-- [Twitter/X](https://x.com/node_vin)
+- [Docker Hub](https://hub.docker.com/u/fiftysix) - All Nodevin images are pulled from here.
+- [node-images](https://github.com/fiftysixtech/node-images) - Source for every Docker image Nodevin uses.
 
 This repository is currently maintained by [Fiftysix](https://fiftysix.xyz).
 
-For any questions or suggestions, feel free to contact us at [business@nodevin.xyz](mailto:business@nodevin.xyz).
+For any questions or suggestions, feel free to contact us at [hello@fiftysix.tech](mailto:hello@fiftysix.tech).
 
 ---
 
