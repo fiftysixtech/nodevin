@@ -344,7 +344,21 @@ func GetSnapshotCIDByNetwork(network string) (string, bool) {
 }
 
 func IsSupportedExtendedInfoSoftware(software string) bool {
-	return software == "bitcoin-core" || software == "litecoin-core" || software == "dogecoin-core" || software == "core-geth"
+	if software == "bitcoin-core" || software == "litecoin-core" || software == "dogecoin-core" || software == "core-geth" {
+		return true
+	}
+	return IsEthereumExecutionClient(software)
+}
+
+// IsEthereumExecutionClient reports whether name is one of the container names
+// the "ethereum" network can run its execution client as.
+func IsEthereumExecutionClient(name string) bool {
+	for _, candidate := range CandidateContainerNames("ethereum") {
+		if candidate == name {
+			return true
+		}
+	}
+	return false
 }
 
 // Expands a leading "~" or "~/" in path to the current user's home directory.

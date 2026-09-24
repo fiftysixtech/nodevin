@@ -117,6 +117,9 @@ func getNodevinName(network string) string {
 	case "core-geth":
 		return "Classicvin"
 	default:
+		if utils.IsEthereumExecutionClient(strings.ToLower(network)) {
+			return "Ethvin"
+		}
 		return "Nodevin"
 	}
 }
@@ -132,6 +135,9 @@ func getSoftwareNetworkName(softwareName string) string {
 	case "core-geth":
 		return "ethereum-classic"
 	default:
+		if utils.IsEthereumExecutionClient(softwareName) {
+			return "ethereum"
+		}
 		return ""
 	}
 }

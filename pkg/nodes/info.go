@@ -192,10 +192,10 @@ func getLatestBlocks(containerName string) (int, int) {
 // field) used by bitcoin-core/litecoin-core/dogecoin-core.
 func isEthereumStyleRPC(name string) bool {
 	switch name {
-	case "core-geth", "core-geth-testnet", "ethereum-classic", "ethereum-classic-testnet":
+	case "core-geth", "core-geth-testnet", "ethereum-classic", "ethereum-classic-testnet", "ethereum":
 		return true
 	default:
-		return false
+		return utils.IsEthereumExecutionClient(name)
 	}
 }
 
@@ -326,6 +326,10 @@ func getLocalEndpointByContainerName(containerName string) string {
 		url = "http://127.0.0.1:8545"
 	} else if containerName == "core-geth-testnet" {
 		url = "http://127.0.0.1:8546"
+	} else if utils.IsEthereumExecutionClient(containerName) {
+		// Whichever execution client the "ethereum" network runs as, its
+		// JSON-RPC is published on the same host port.
+		url = fmt.Sprintf("http://127.0.0.1:%d", utils.NetworkDefaultRPCPorts()["ethereum"])
 	}
 
 	return url
@@ -495,15 +499,55 @@ func getNodeVersionFromEnv(containerID string) string {
 	// Traverse to find environment variables
 	if len(inspectData) > 0 {
 		if config, ok := inspectData[0]["Config"].(map[string]interface{}); ok {
+			image, _ := config["Image"].(string)
+			var env []string
 			if envVars, ok := config["Env"].([]interface{}); ok {
 				for _, envVar := range envVars {
-					if envStr, ok := envVar.(string); ok && strings.HasPrefix(envStr, "NODE_VERSION=") {
-						return strings.TrimPrefix(envStr, "NODE_VERSION=")
+					if envStr, ok := envVar.(string); ok {
+						env = append(env, envStr)
 					}
 				}
 			}
+			return versionFromEnv(image, env)
 		}
 	}
 
+	return "unknown"
+}
+
+// versionFromEnv finds a container's software version in its environment.
+// Most images set NODE_VERSION; the Ethereum images each name theirs after the
+// client (RETH_VERSION, BESU_CLIENT_VERSION, NIMBUS_CLIENT_VERSION, ...), and
+// Lodestar's is just CLIENT_VERSION.
+func versionFromEnv(image string, env []string) string {
+	name := image
+	if i := strings.LastIndex(name, "/"); i >= 0 {
+		name = name[i+1:]
+	}
+	if i := strings.Index(name, ":"); i >= 0 {
+		name = name[:i]
+	}
+	prefix := strings.ToUpper(strings.ReplaceAll(name, "-", "_"))
+
+	lookup := func(match func(key string) bool) string {
+		for _, entry := range env {
+			if key, value, ok := strings.Cut(entry, "="); ok && match(key) && value != "" {
+				return value
+			}
+		}
+		return ""
+	}
+
+	if v := lookup(func(k string) bool { return k == "NODE_VERSION" }); v != "" {
+		return v
+	}
+	if prefix != "" {
+		if v := lookup(func(k string) bool { return strings.HasPrefix(k, prefix+"_") && strings.HasSuffix(k, "VERSION") }); v != "" {
+			return v
+		}
+	}
+	if v := lookup(func(k string) bool { return k == "CLIENT_VERSION" }); v != "" {
+		return v
+	}
 	return "unknown"
 }
