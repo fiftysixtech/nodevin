@@ -20,8 +20,10 @@ package ethereum
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/fiftysixcrypto/nodevin/internal/logger"
+	"github.com/fiftysixcrypto/nodevin/internal/utils"
 	"github.com/fiftysixcrypto/nodevin/pkg/docker"
 	"github.com/fiftysixcrypto/nodevin/pkg/docker/compose"
 	"github.com/spf13/viper"
@@ -51,6 +53,31 @@ func consensusClientComposeConfig(consensusClient string) (compose.NetworkConfig
 	}
 }
 
+// conflictingContainers returns the running Ethereum stack containers that are
+// not part of the stack about to be started. Two stacks would fight over host
+// ports and the shared network, and silently replacing a running node is not
+// something `start` should do, so the caller refuses instead.
+func conflictingContainers(running []string, executionClient, consensusClient string) []string {
+	members := utils.CandidateContainerNames("ethereum")
+	for _, component := range utils.ComponentNetworks("ethereum") {
+		name, _ := utils.GetDefaultLocalMappedContainerName(component)
+		members = append(members, name)
+	}
+
+	isMember := make(map[string]bool, len(members))
+	for _, name := range members {
+		isMember[name] = true
+	}
+
+	var conflicts []string
+	for _, name := range running {
+		if isMember[name] && name != executionClient && name != consensusClient {
+			conflicts = append(conflicts, name)
+		}
+	}
+	return conflicts
+}
+
 func CreateEthereumComposeFile(cwd string) (string, error) {
 	const network = "ethereum"
 
@@ -62,6 +89,18 @@ func CreateEthereumComposeFile(cwd string) (string, error) {
 	consensusClient, err := compose.SelectedConsensusClient()
 	if err != nil {
 		return "", err
+	}
+
+	executionClient := ethereumBaseComposeConfig.ContainerName
+	paired := consensusClient
+	if paired == "none" {
+		paired = ""
+	}
+	if running, err := utils.RunningContainerNames(); err == nil {
+		if conflicts := conflictingContainers(running, executionClient, paired); len(conflicts) > 0 {
+			return "", fmt.Errorf("cannot start %s: %s already running as part of the ethereum stack. Run `%s stop ethereum` first",
+				executionClient, strings.Join(conflicts, ", "), utils.GetNodevinExecutable())
+		}
 	}
 
 	if consensusClient == "none" {

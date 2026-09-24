@@ -397,6 +397,11 @@ func displayNodeDirectoryInfo(networkFilter string) {
 			logger.LogError("Unsupported blockchain network: " + network)
 			continue
 		}
+		// A network with selectable clients reports the one that is present;
+		// if that is ambiguous, fall back to the default client's directory.
+		if resolved, err := utils.ResolveContainerName(network); err == nil {
+			containerName = resolved
+		}
 
 		if networkFilter != "" && networkFilter != network {
 			continue

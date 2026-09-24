@@ -42,9 +42,18 @@ var stopNodeCmd = &cobra.Command{
 func stopNode(network string) error {
 	logger.LogInfo("Stopping blockchain node...")
 
-	containerName, exists := utils.GetDefaultLocalMappedContainerName(network)
-	if !exists {
-		return fmt.Errorf("unsupported blockchain network: %s", network)
+	if owner, ok := utils.StackOwner(network); ok {
+		return fmt.Errorf("%s runs as part of %s and cannot be stopped on its own; use `%s stop %s` to stop the whole stack", network, owner, utils.GetNodevinExecutable(), owner)
+	}
+
+	containerName, err := utils.ResolveContainerName(network)
+	if err != nil {
+		var ambiguous *utils.AmbiguousClientError
+		if errors.As(err, &ambiguous) && !ambiguous.Running {
+			logger.LogInfo("No running containers found for the specified network (" + err.Error() + ")")
+			return nil
+		}
+		return err
 	}
 
 	if utils.CheckIfTestnetOrTestnetNetworkFlag() {
@@ -115,6 +124,9 @@ func stopAllNodes() error {
 	networkContainerMap := utils.NetworkContainerMap()
 	allowedContainers := make(map[string]bool)
 	for _, containerName := range networkContainerMap {
+		allowedContainers[containerName] = true
+	}
+	for _, containerName := range utils.AllContainerNames() {
 		allowedContainers[containerName] = true
 	}
 

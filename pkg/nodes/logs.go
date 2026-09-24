@@ -62,9 +62,9 @@ func fetchLogs(network string) error {
 		}
 	}
 
-	containerName, exists := getOutputLogsContainerName(properNetwork)
-	if !exists {
-		return fmt.Errorf("unsupported blockchain network: %s", network)
+	containerName, err := utils.ResolveContainerName(properNetwork)
+	if err != nil {
+		return err
 	}
 
 	args := []string{"logs"}
@@ -84,15 +84,6 @@ func fetchLogs(network string) error {
 		return fmt.Errorf("failed to fetch Docker logs: %w", err)
 	}
 	return nil
-}
-
-func getOutputLogsContainerName(network string) (string, bool) {
-	for net, container := range utils.NetworkContainerMap() {
-		if net == network {
-			return container, true
-		}
-	}
-	return "", false
 }
 
 func init() {

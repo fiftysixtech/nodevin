@@ -45,9 +45,9 @@ var shellCmd = &cobra.Command{
 		cmd.SilenceUsage = true
 
 		network := args[0]
-		containerName, exists := utils.GetDefaultLocalMappedContainerName(network)
-		if !exists {
-			return fmt.Errorf("unsupported blockchain network: %s", network)
+		containerName, err := utils.ResolveContainerName(network)
+		if err != nil {
+			return err
 		}
 		return runShell(containerName)
 	},

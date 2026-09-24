@@ -54,6 +54,11 @@ func fetchNodeSizes() map[string]int64 {
 			logger.LogError("Unsupported blockchain network: " + network)
 			continue
 		}
+		// A network with selectable clients reports the one that is present;
+		// if that is ambiguous, fall back to the default client's directory.
+		if resolved, err := utils.ResolveContainerName(network); err == nil {
+			containerName = resolved
+		}
 
 		networkDir := filepath.Join(nodevinDataDir, containerName)
 		size, err := getDirectorySize(networkDir)

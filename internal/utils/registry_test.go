@@ -50,10 +50,21 @@ func TestNetworkInfoMapInvariants(t *testing.T) {
 				t.Error("StartMessage is empty")
 			}
 
-			if other, dup := seenContainers[info.ContainerName]; dup {
-				t.Errorf("ContainerName %q is used by both %q and %q", info.ContainerName, other, network)
+			for _, name := range CandidateContainerNames(network) {
+				if other, dup := seenContainers[name]; dup {
+					t.Errorf("container name %q is used by both %q and %q", name, other, network)
+				}
+				seenContainers[name] = network
 			}
-			seenContainers[info.ContainerName] = network
+
+			if len(info.AlternateContainerNames) > 0 && info.ClientFlag == "" {
+				t.Error("AlternateContainerNames is set but ClientFlag is empty, so nothing could select between them")
+			}
+			if info.PartOf != "" {
+				if _, ok := networkInfoMap[info.PartOf]; !ok {
+					t.Errorf("PartOf %q is not a registered network", info.PartOf)
+				}
+			}
 
 			if !strings.HasSuffix(network, "-testnet") {
 				return

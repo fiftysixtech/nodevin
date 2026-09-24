@@ -30,7 +30,18 @@ import (
 )
 
 type NetworkInfo struct {
-	ContainerName    string
+	ContainerName string
+	// AlternateContainerNames are other containers the network's primary
+	// service may run as (e.g. Ethereum's execution client is chosen with
+	// --execution-client). ContainerName is the default. See ResolveContainerName.
+	AlternateContainerNames []string
+	// ClientFlag names the CLI flag that selects between ContainerName and
+	// AlternateContainerNames.
+	ClientFlag string
+	// PartOf marks a network that only ever runs inside another network's
+	// compose stack (e.g. lighthouse inside ethereum): it has no compose file
+	// of its own and cannot be stopped independently.
+	PartOf           string
 	DockerHubImage   string
 	SnapshotCID      string
 	RPCPort          int
@@ -181,28 +192,27 @@ var networkInfoMap = map[string]NetworkInfo{
 		StartMessage:     "\"Testing is the lifeblood of innovation and security.\"",
 		CommandSupported: false,
 	},
-	// "ethereum" registers as the DEFAULT execution client's container name
-	// ("reth") only. --execution-client lets a user run a different execution
-	// client under the same "ethereum" network name, but this registry can
-	// only ever hold one static ContainerName per key - so `nodevin stop
-	// ethereum`/`nodevin delete ethereum` only resolve correctly for users who
-	// stuck with the default (reth). This is a known limitation of the
-	// current one-name-per-network registry model, not an oversight.
+	// "ethereum" registers the DEFAULT execution client ("reth") as its
+	// ContainerName; --execution-client can select any of the alternates. Use
+	// ResolveContainerName, not this static name, to find what is running.
 	"ethereum": {
-		ContainerName:    "reth",
-		DockerHubImage:   "reth",
-		RPCPort:          8547,
-		SnapshotCID:      "",
-		DataSize:         0,
-		SnapshotSize:     0,
-		StartMessage:     "\"Not your keys, not your coins.\" -- Ethereum Community",
-		CommandSupported: true,
+		ContainerName:           "reth",
+		AlternateContainerNames: []string{"geth", "erigon", "besu", "nethermind"},
+		ClientFlag:              "execution-client",
+		DockerHubImage:          "reth",
+		RPCPort:                 8547,
+		SnapshotCID:             "",
+		DataSize:                0,
+		SnapshotSize:            0,
+		StartMessage:            "\"Not your keys, not your coins.\" -- Ethereum Community",
+		CommandSupported:        true,
 	},
 	// The five consensus clients each get their own registry entry (mirroring
-	// how "ord" is registered despite being bundled with bitcoin) so
-	// `nodevin stop`/`delete` can target a running consensus client
-	// independently of the paired execution client.
+	// how "ord" is registered despite being bundled with bitcoin) so logs,
+	// shell and delete can target one directly. They run inside the ethereum
+	// stack (PartOf), so stop goes through "ethereum".
 	"lighthouse": {
+		PartOf:           "ethereum",
 		ContainerName:    "lighthouse",
 		DockerHubImage:   "lighthouse",
 		RPCPort:          5052,
@@ -213,6 +223,7 @@ var networkInfoMap = map[string]NetworkInfo{
 		CommandSupported: false,
 	},
 	"prysm": {
+		PartOf:           "ethereum",
 		ContainerName:    "prysm",
 		DockerHubImage:   "prysm",
 		RPCPort:          3500,
@@ -223,6 +234,7 @@ var networkInfoMap = map[string]NetworkInfo{
 		CommandSupported: false,
 	},
 	"teku": {
+		PartOf:           "ethereum",
 		ContainerName:    "teku",
 		DockerHubImage:   "teku",
 		RPCPort:          5051,
@@ -233,6 +245,7 @@ var networkInfoMap = map[string]NetworkInfo{
 		CommandSupported: false,
 	},
 	"nimbus": {
+		PartOf:           "ethereum",
 		ContainerName:    "nimbus",
 		DockerHubImage:   "nimbus",
 		RPCPort:          5052,
@@ -243,6 +256,7 @@ var networkInfoMap = map[string]NetworkInfo{
 		CommandSupported: false,
 	},
 	"lodestar": {
+		PartOf:           "ethereum",
 		ContainerName:    "lodestar",
 		DockerHubImage:   "lodestar",
 		RPCPort:          9596,
