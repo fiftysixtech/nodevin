@@ -396,29 +396,23 @@ func displayNodeDirectoryInfo(networkFilter string) {
 
 	// Iterate over each supported network and calculate its directory size
 	for _, network := range strings.Split(networks, ", ") {
-		containerName, exists := utils.GetDefaultLocalMappedContainerName(network)
-		if !exists {
+		if _, exists := utils.GetDefaultLocalMappedContainerName(network); !exists {
 			logger.LogError("Unsupported blockchain network: " + network)
 			continue
-		}
-		// A network with selectable clients reports the one that is present;
-		// if that is ambiguous, fall back to the default client's directory.
-		if resolved, err := utils.ResolveContainerName(network); err == nil {
-			containerName = resolved
 		}
 
 		if networkFilter != "" && networkFilter != network {
 			continue
 		}
 
-		networkDir := filepath.Join(nodevinDataDir, containerName)
-		size, err := getDirectorySize(networkDir)
-		sizeDescription := "unknown"
-		if err == nil {
-			printed++
-			sizeDescription = utils.GetSizeDescription(size)
-			// Output the formatted row with network name, size, and directory path
-			fmt.Fprintf(w, "| %s\t %s\t %s\n", network, sizeDescription, networkDir)
+		for _, entry := range dataDirEntries(network) {
+			networkDir := filepath.Join(nodevinDataDir, entry.container)
+			size, err := getDirectorySize(networkDir)
+			if err == nil {
+				printed++
+				// Output the formatted row with network name, size, and directory path
+				fmt.Fprintf(w, "| %s\t %s\t %s\n", entry.label, utils.GetSizeDescription(size), networkDir)
+			}
 		}
 	}
 
@@ -550,4 +544,27 @@ func versionFromEnv(image string, env []string) string {
 		return v
 	}
 	return "unknown"
+}
+
+type dataDirEntry struct {
+	label     string
+	container string
+}
+
+// dataDirEntries lists the data directories to report for network. A network
+// whose primary service can run as several clients (Ethereum) reports every
+// client, since each keeps its own data and several can be on disk at once;
+// every other network has just its one directory.
+func dataDirEntries(network string) []dataDirEntry {
+	candidates := utils.CandidateContainerNames(network)
+	if len(candidates) <= 1 {
+		container, _ := utils.GetDefaultLocalMappedContainerName(network)
+		return []dataDirEntry{{network, container}}
+	}
+
+	var entries []dataDirEntry
+	for _, candidate := range candidates {
+		entries = append(entries, dataDirEntry{fmt.Sprintf("%s (%s)", network, candidate), candidate})
+	}
+	return entries
 }

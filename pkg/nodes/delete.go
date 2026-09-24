@@ -99,6 +99,12 @@ func deleteNetworkDirectory(baseDir, networkName string) error {
 		return fmt.Errorf("failed to remove data for network %s: %w", networkName, err)
 	}
 
+	// The generated stack file for a deleted execution client would otherwise
+	// linger and make later commands think that client still has a footprint.
+	if len(utils.CandidateContainerNames(networkName)) > 1 {
+		os.Remove(filepath.Join(baseDir, "docker-compose_"+containerName+".yml"))
+	}
+
 	logger.LogInfo(fmt.Sprintf("Successfully removed %s data directory", networkName))
 
 	// Components of this network's stack (Ethereum's consensus client) keep

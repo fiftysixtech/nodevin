@@ -19,6 +19,8 @@
 package nodes
 
 import (
+	"io"
+	"os"
 	"strings"
 	"testing"
 
@@ -176,5 +178,59 @@ func TestStopAllNodes_IncludesNonDefaultExecutionClients(t *testing.T) {
 	calls := fake.calls(t)
 	if !strings.Contains(calls, "docker stop id111") || strings.Contains(calls, "id222") {
 		t.Fatalf("expected only geth (id111) to be stopped, calls:\n%s", calls)
+	}
+}
+
+func TestDeleteNetworkDirectory_EthereumAlsoRemovesItsStackFile(t *testing.T) {
+	dataDir := useDataDir(t)
+	makeNodeDirs(t, dataDir, "geth", "reth")
+	gethFile := writeComposeFile(t, dataDir, "geth")
+	rethFile := writeComposeFile(t, dataDir, "reth")
+	installFakeDocker(t, true, false)
+	useExecutionClient(t, "geth")
+
+	if err := deleteNetworkDirectory(dataDir, "ethereum"); err != nil {
+		t.Fatalf("deleteNetworkDirectory() error: %v", err)
+	}
+	if exists(gethFile) {
+		t.Error("the deleted client's stack file should be removed")
+	}
+	if !exists(rethFile) {
+		t.Error("another client's stack file must be left alone")
+	}
+}
+
+func TestDataDirEntries(t *testing.T) {
+	got := dataDirEntries("ethereum")
+	if len(got) != 5 || got[0] != (dataDirEntry{"ethereum (reth)", "reth"}) || got[1] != (dataDirEntry{"ethereum (geth)", "geth"}) {
+		t.Errorf("dataDirEntries(ethereum) = %v, want one entry per execution client, reth first", got)
+	}
+	if got := dataDirEntries("bitcoin"); len(got) != 1 || got[0] != (dataDirEntry{"bitcoin", "bitcoin-core"}) {
+		t.Errorf("dataDirEntries(bitcoin) = %v, want the single bitcoin-core entry", got)
+	}
+	if got := dataDirEntries("lighthouse"); len(got) != 1 || got[0].container != "lighthouse" {
+		t.Errorf("dataDirEntries(lighthouse) = %v", got)
+	}
+}
+
+func TestDisplayNodeDirectoryInfo_ListsEveryEthereumClient(t *testing.T) {
+	dataDir := useDataDir(t)
+	makeNodeDirs(t, dataDir, "reth", "geth", "bitcoin-core")
+
+	r, w, _ := os.Pipe()
+	orig := os.Stdout
+	os.Stdout = w
+	displayNodeDirectoryInfo("")
+	w.Close()
+	os.Stdout = orig
+	out, _ := io.ReadAll(r)
+
+	for _, want := range []string{"ethereum (reth)", "ethereum (geth)", "bitcoin "} {
+		if !strings.Contains(string(out), want) {
+			t.Errorf("output missing %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(string(out), "ethereum (erigon)") {
+		t.Errorf("a client with no data must not be listed:\n%s", out)
 	}
 }
