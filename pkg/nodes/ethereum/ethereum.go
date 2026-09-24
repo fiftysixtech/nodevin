@@ -91,6 +91,11 @@ func CreateEthereumComposeFile(cwd string) (string, error) {
 		return "", err
 	}
 
+	checkpointURL, err := compose.ResolveCheckpointSyncURL(consensusClient)
+	if err != nil {
+		return "", err
+	}
+
 	executionClient := ethereumBaseComposeConfig.ContainerName
 	paired := consensusClient
 	if paired == "none" {
@@ -140,6 +145,11 @@ func CreateEthereumComposeFile(cwd string) (string, error) {
 	// than duplicated in each of the five per-client builders.
 	consensusComposeConfig.Image = consensusImage
 	consensusComposeConfig.Version = consensusVersion
+
+	consensusComposeConfig.Command, err = compose.WithCheckpointSync(consensusClient, checkpointURL, consensusComposeConfig.Command)
+	if err != nil {
+		return "", err
+	}
 
 	composeFilePath, err := compose.CreateComposeFile(
 		ethereumBaseComposeConfig.ContainerName,

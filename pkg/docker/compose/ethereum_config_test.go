@@ -129,3 +129,91 @@ func TestEthereumNeverPublishesTheEngineAPI(t *testing.T) {
 		}
 	}
 }
+
+func TestResolveCheckpointSyncURL(t *testing.T) {
+	cases := []struct {
+		name    string
+		client  string
+		url     string
+		want    string
+		wantErr string
+	}{
+		{"none needs no URL", "none", "", "", ""},
+		{"none ignores a bad URL", "none", "not a url", "", ""},
+		{"required for a real client", "lighthouse", "", "", "--checkpoint-sync-url is required"},
+		{"points at the public endpoint list", "teku", "", "", "eth-clients.github.io/checkpoint-sync-endpoints"},
+		{"accepts https", "lighthouse", "https://mainnet.checkpoint.sigp.io", "https://mainnet.checkpoint.sigp.io", ""},
+		{"trims a trailing slash", "prysm", "https://example.org/", "https://example.org", ""},
+		{"accepts http (own node on a LAN)", "lodestar", "http://192.168.1.5:5052", "http://192.168.1.5:5052", ""},
+		{"rejects a non-http scheme", "lighthouse", "file:///etc/passwd", "", "invalid --checkpoint-sync-url"},
+		{"rejects no host", "lighthouse", "https://", "", "invalid --checkpoint-sync-url"},
+		{"rejects whitespace that would inject a second flag", "lighthouse", "https://a.org --allow-insecure-genesis-sync", "", "invalid --checkpoint-sync-url"},
+		{"rejects shell metacharacters", "lighthouse", "https://a.org/$(id)", "", "invalid --checkpoint-sync-url"},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			viper.Set("checkpoint-sync-url", c.url)
+			t.Cleanup(func() { viper.Set("checkpoint-sync-url", "") })
+
+			got, err := ResolveCheckpointSyncURL(c.client)
+			if c.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), c.wantErr) {
+					t.Fatalf("error = %v, want one containing %q", err, c.wantErr)
+				}
+				return
+			}
+			if err != nil || got != c.want {
+				t.Errorf("got (%q, %v), want (%q, nil)", got, err, c.want)
+			}
+		})
+	}
+}
+
+func TestWithCheckpointSync(t *testing.T) {
+	const u = "https://cp.example.org"
+	const base = "BASE"
+
+	want := map[string]string{
+		"lighthouse": "BASE --checkpoint-sync-url https://cp.example.org",
+		"prysm":      "BASE --checkpoint-sync-url https://cp.example.org --genesis-beacon-api-url https://cp.example.org",
+		"teku":       "BASE --checkpoint-sync-url https://cp.example.org",
+		"lodestar":   "BASE --checkpointSyncUrl https://cp.example.org",
+	}
+	for client, expected := range want {
+		if got, err := WithCheckpointSync(client, u, base); err != nil || got != expected {
+			t.Errorf("WithCheckpointSync(%s) = (%q, %v), want %q", client, got, err, expected)
+		}
+	}
+	if _, err := WithCheckpointSync("grandine", u, base); err == nil {
+		t.Error("an unknown client must be an error")
+	}
+}
+
+// Nimbus must sync via trustedNodeSync before starting, only when there is no
+// database yet, must fail rather than fall through to a genesis start, and must
+// keep the entrypoint's default flags by starting through it.
+func TestWithCheckpointSync_Nimbus(t *testing.T) {
+	got, err := WithCheckpointSync("nimbus", "https://cp.example.org", "nimbus_beacon_node --el=http://geth:8551 --jwt-secret=/node/geth/data/jwt.hex")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, want := range []string{
+		"/bin/sh -c '",
+		"if [ ! -d /node/nimbus/data/db ]; then",
+		"trustedNodeSync --network=mainnet --data-dir=/node/nimbus/data --trusted-node-url=https://cp.example.org --backfill=false",
+		"|| { rm -rf /node/nimbus/data/db; exit 1; }",
+		"exec /node/nimbus/scripts/nimbus-entrypoint.sh nimbus_beacon_node --el=http://geth:8551 --jwt-secret=/node/geth/data/jwt.hex'",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("command %q does not contain %q", got, want)
+		}
+	}
+	if strings.Contains(got, "$") {
+		t.Errorf("command %q contains a $, which docker compose would try to interpolate", got)
+	}
+	if strings.Index(got, "trustedNodeSync") > strings.Index(got, "exec ") {
+		t.Error("trustedNodeSync must run before nimbus starts")
+	}
+}

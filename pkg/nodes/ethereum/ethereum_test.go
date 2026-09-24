@@ -122,3 +122,12 @@ func TestCreateEthereumComposeFile_RefusesToReplaceARunningStack(t *testing.T) {
 		t.Fatalf("error = %v, want a refusal naming the running containers and `stop ethereum`", err)
 	}
 }
+
+func TestCreateEthereumComposeFile_RequiresACheckpointURL(t *testing.T) {
+	setup(t, "", map[string]interface{}{"consensus-client": "lighthouse", "checkpoint-sync-url": ""})
+
+	_, err := CreateEthereumComposeFile(t.TempDir())
+	if err == nil || !strings.Contains(err.Error(), "--checkpoint-sync-url is required") {
+		t.Fatalf("error = %v, want one requiring --checkpoint-sync-url", err)
+	}
+}

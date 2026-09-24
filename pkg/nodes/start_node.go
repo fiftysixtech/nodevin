@@ -71,6 +71,16 @@ func startNode(args []string) error {
 			return err
 		}
 		containerName = "fiftysix/" + executionClient
+
+		// Fail before pulling multi-GB images if the consensus client cannot
+		// be started as asked.
+		consensusClient, err := compose.SelectedConsensusClient()
+		if err != nil {
+			return err
+		}
+		if _, err := compose.ResolveCheckpointSyncURL(consensusClient); err != nil {
+			return err
+		}
 	}
 
 	logger.LogInfo("Starting blockchain node for network: " + network)

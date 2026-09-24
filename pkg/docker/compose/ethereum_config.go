@@ -20,7 +20,9 @@ package compose
 
 import (
 	"fmt"
+	"net/url"
 	"path/filepath"
+	"strings"
 
 	"github.com/fiftysixcrypto/nodevin/internal/utils"
 	"github.com/spf13/viper"
@@ -90,6 +92,61 @@ func SelectedConsensusClient() (string, error) {
 		return "", fmt.Errorf("unsupported --consensus-client: %s (supported: lighthouse, prysm, teku, nimbus, lodestar, none)", client)
 	}
 	return client, nil
+}
+
+// ResolveCheckpointSyncURL returns the validated --checkpoint-sync-url for a
+// consensus client. It is required for every consensus client: Lighthouse and
+// Teku refuse to sync from genesis at all, and genesis sync is impractically
+// slow and unsafe on mainnet for the rest. nodevin deliberately has no default
+// endpoint - which third party to trust for checkpoint data is the user's call.
+// Returns "" for consensusClient "none".
+func ResolveCheckpointSyncURL(consensusClient string) (string, error) {
+	if consensusClient == "none" {
+		return "", nil
+	}
+
+	raw := strings.TrimSpace(viper.GetString("checkpoint-sync-url"))
+	if raw == "" {
+		return "", fmt.Errorf("--checkpoint-sync-url is required to run %s: a consensus client cannot sync mainnet from genesis (Lighthouse and Teku refuse to try). "+
+			"Pass the URL of a checkpoint sync provider you trust (public list: https://eth-clients.github.io/checkpoint-sync-endpoints/), or use --consensus-client=none to run the execution client alone", consensusClient)
+	}
+
+	parsed, err := url.Parse(raw)
+	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" || strings.ContainsAny(raw, " \t\r\n\"'`$\\;&|<>") {
+		return "", fmt.Errorf("invalid --checkpoint-sync-url %q: expected an http(s) URL such as https://mainnet.checkpoint.sigp.io", raw)
+	}
+	return strings.TrimRight(raw, "/"), nil
+}
+
+// WithCheckpointSync returns command (a consensus client's base command) set up
+// to start from the checkpoint provider at checkpointURL.
+//
+// Every client but Nimbus just takes a flag. Nimbus's own checkpoint flags
+// (--external-beacon-api-url with --trusted-block-root) rely on the provider
+// serving light-client data, which public providers often don't - Nimbus then
+// silently falls back to syncing from genesis. Its supported route is the
+// separate `trustedNodeSync` subcommand, run once against an empty database, so
+// for Nimbus the command becomes a small wrapper that runs it first. It never
+// deletes anything that was there before: it only runs when there is no
+// database yet, and only cleans up the partial one its own failed run created.
+func WithCheckpointSync(consensusClient, checkpointURL, command string) (string, error) {
+	switch consensusClient {
+	case "lighthouse", "teku":
+		return command + " --checkpoint-sync-url " + checkpointURL, nil
+	case "prysm":
+		return fmt.Sprintf("%s --checkpoint-sync-url %s --genesis-beacon-api-url %s", command, checkpointURL, checkpointURL), nil
+	case "lodestar":
+		return command + " --checkpointSyncUrl " + checkpointURL, nil
+	case "nimbus":
+		const db = "/node/nimbus/data/db"
+		script := fmt.Sprintf("if [ ! -d %[1]s ]; then "+
+			"gosu nodeuser /usr/bin/nimbus_beacon_node trustedNodeSync --network=mainnet --data-dir=/node/nimbus/data --trusted-node-url=%[2]s --backfill=false "+
+			"|| { rm -rf %[1]s; exit 1; }; fi; "+
+			"exec /node/nimbus/scripts/nimbus-entrypoint.sh %[3]s", db, checkpointURL, command)
+		return "/bin/sh -c '" + script + "'", nil
+	default:
+		return "", fmt.Errorf("unsupported --consensus-client: %s", consensusClient)
+	}
 }
 
 // executionClientMountVolume returns the docker-compose volume entry that
