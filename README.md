@@ -1,6 +1,6 @@
 # Nodevin
 
-Nodevin allows anyone to run blockchain nodes effortlessly. It simplifies the process of setting up and managing nodes for various blockchains, ensuring they are always up-to-date with the latest software versions. With Nodevin, you can run nodes for Bitcoin, Litecoin, Dogecoin, Ethereum Classic, and IPFS with ease. Ethereum support is coming soon.
+Nodevin allows anyone to run blockchain nodes effortlessly. It simplifies the process of setting up and managing nodes for various blockchains, ensuring they are always up-to-date with the latest software versions. With Nodevin, you can run nodes for Bitcoin, Litecoin, Dogecoin, Ethereum, Ethereum Classic, and IPFS with ease.
 
 Our goal is to facilitate blockchain node standup and maintenance for every chain in the world, in service of a more decentralized internet.
 
@@ -40,6 +40,14 @@ nodevin start bitcoin
 ```
 
 *Nodevin stores blockchain data by default in `$HOME/.nodevin`.*
+
+**Ethereum** runs an execution client and a consensus client together. A consensus client can't sync mainnet from genesis, so you choose a checkpoint sync provider you trust ([public list](https://eth-clients.github.io/checkpoint-sync-endpoints/)):
+
+```sh
+nodevin start ethereum --checkpoint-sync-url <provider-url>
+```
+
+By default this runs reth with Lighthouse. Pick others with `--execution-client` (reth, geth, erigon, besu, nethermind) and `--consensus-client` (lighthouse, prysm, teku, nimbus, lodestar). See [Ethereum options](./docs/cli-commands.md#ethereum-options).
 
 ---
 

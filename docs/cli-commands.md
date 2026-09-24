@@ -141,6 +141,52 @@ Nodevin is a command-line interface (CLI) that simplifies the setup, management,
 *Default*: `false`
 *Usage*: `--ipfs-cluster`
 
+#### Ethereum options
+
+`nodevin start ethereum` runs one Ethereum execution client and one consensus client together in a single Docker Compose stack. The consensus client drives the execution client over the Engine API using a shared JWT secret that the execution client generates and the consensus client reads (read-only).
+
+- **`--execution-client`**
+
+*Description*: Which execution client to run.
+*Options*: `reth`, `geth`, `erigon`, `besu`, `nethermind`
+*Default*: `reth`
+*Usage*: `--execution-client=geth`
+
+- **`--consensus-client`**
+
+*Description*: Which consensus client to run alongside it, or `none` to run the execution client alone.
+*Options*: `lighthouse`, `prysm`, `teku`, `nimbus`, `lodestar`, `none`
+*Default*: `lighthouse`
+*Usage*: `--consensus-client=prysm`
+
+- **`--checkpoint-sync-url`**
+
+*Description*: URL of a checkpoint sync provider the consensus client starts from. **Required** unless `--consensus-client=none`: a consensus client cannot sync mainnet from genesis (Lighthouse and Teku refuse to try). Nodevin has no default endpoint on purpose; choosing whose checkpoint to trust is your decision. See the [public endpoint list](https://eth-clients.github.io/checkpoint-sync-endpoints/). It must be an `http(s)` URL. Pass it on each `start`; once a client has a database it resumes from that instead (checked with Nimbus and Lodestar).
+*Usage*: `--checkpoint-sync-url=<url>`
+
+- **`--consensus-image`** / **`--consensus-version`**
+
+*Description*: Docker image and tag for the consensus client.
+*Default*: `fiftysix/<consensus-client>` and `latest`
+*Usage*: `--consensus-image=<docker-image> --consensus-version=<tag>`
+
+Example:
+```bash
+nodevin start ethereum \
+--execution-client=geth \
+--consensus-client=nimbus \
+--checkpoint-sync-url=<provider-url>
+```
+
+*Ports*: Ethereum publishes its JSON-RPC on `127.0.0.1:8547`, WebSocket on `127.0.0.1:8548` and peer port `30305` (the canonical 8545/8546/30303/30304 are already used by Ethereum Classic). The Engine API (8551) is never published to the host. The consensus client's beacon REST API is published on `127.0.0.1` only (Lighthouse and Nimbus `5052`, Prysm `3500`, Teku `5051`, Lodestar `9596`); its peer ports stay public (`9000` for Lighthouse, Teku, Nimbus and Lodestar, plus `9001/udp` for Nimbus; `13000` and `12000/udp` for Prysm). Override with `--ports`.
+
+*Notes*:
+- Ethereum testnets are not supported yet.
+- Nimbus starts from your checkpoint provider with its `trustedNodeSync` command, run once when it has no database yet.
+- Only one Ethereum stack can run at a time: `start` refuses to start over a different running execution or consensus client. Run `nodevin stop ethereum` first.
+- Compatibility caveat: in testing on Docker Desktop for Mac, Nimbus and Lodestar found no peers while Lighthouse, Prysm and Teku did. This looked like a Docker Desktop UDP port publishing issue, and Linux hosts have not been tested.
+- Mainnet Ethereum needs a lot of disk space and can take days to sync. The reth image defaults to archive mode.
+
 - **`--ipfs-cluster-image`**
 
 *Description*: Docker image to use for `ipfs-cluster`.
@@ -266,7 +312,7 @@ Nodevin is a command-line interface (CLI) that simplifies the setup, management,
 
 *Note*: `--ports` replaces the node's default mappings entirely, so list every port you want published. For IPFS the defaults are `4001:4001`, `127.0.0.1:5001:5001` (RPC API) and `127.0.0.1:8080:8080` (gateway): the API and gateway are only reachable from the machine running the node. The API has admin-level access, so only publish it on other interfaces (for example `--ports="4001:4001,0.0.0.0:5001:5001"`) if you have put authentication or a firewall in front of it.
 
-*Note on RPC ports*: for every chain the JSON-RPC port is published on `127.0.0.1` only, and peer ports stay public so other nodes can connect: Bitcoin `127.0.0.1:8332` + `8333`, Litecoin `127.0.0.1:9332` + `9333`, Dogecoin `127.0.0.1:22555` + `22556`, Ethereum Classic `127.0.0.1:8545` + `30303` (testnets use their own ports). To reach a node's RPC from another machine, list the mapping yourself, for example `--ports="0.0.0.0:8332:8332,8333:8333"`, and set your own `--rpc-user`/`--rpc-pass`: the defaults (`user`/`fiftysix`) are public, RPC is plain HTTP, and Ethereum Classic's RPC has no authentication at all. Prefer an SSH tunnel or a firewall rule to publishing RPC on a public interface. The `ord` web interface and the `ipfs-cluster` REST API are unchanged.
+*Note on RPC ports*: for every chain the JSON-RPC port is published on `127.0.0.1` only, and peer ports stay public so other nodes can connect: Bitcoin `127.0.0.1:8332` + `8333`, Litecoin `127.0.0.1:9332` + `9333`, Dogecoin `127.0.0.1:22555` + `22556`, Ethereum `127.0.0.1:8547` + `30305`, Ethereum Classic `127.0.0.1:8545` + `30303` (testnets use their own ports). To reach a node's RPC from another machine, list the mapping yourself, for example `--ports="0.0.0.0:8332:8332,8333:8333"`, and set your own `--rpc-user`/`--rpc-pass`: the defaults (`user`/`fiftysix`) are public, RPC is plain HTTP, and Ethereum Classic's RPC has no authentication at all. Prefer an SSH tunnel or a firewall rule to publishing RPC on a public interface. The `ord` web interface and the `ipfs-cluster` REST API are unchanged.
 
 - **`--volumes`**
 
@@ -348,6 +394,11 @@ nodevin start bitcoin \
 
 *Description*: Specify a custom network.
 *Usage*: `nodevin stop <network> --network="goerli"`
+
+- **`stop ethereum`**
+
+*Description*: Stops the whole Ethereum stack (execution and consensus client). Nodevin finds the client that is running; if several are, pass `--execution-client=<name>`. The consensus clients cannot be stopped on their own: `nodevin stop lighthouse` (and prysm, teku, nimbus, lodestar) prints an error pointing to `nodevin stop ethereum`.
+*Usage*: `nodevin stop ethereum`
 
 ---
 
@@ -432,6 +483,7 @@ nodevin start bitcoin \
 
 - **Description**: Makes an RPC request to a specified blockchain network.
 - **Simple Example**: `nodevin request bitcoin --method getblockcount`
+- **Ethereum Example**: `nodevin request ethereum --method eth_blockNumber` (talks to the execution client's JSON-RPC on `127.0.0.1:8547`)
 
 #### Options:
 
@@ -472,7 +524,7 @@ nodevin request bitcoin --method getblockheader --params '["00000000c937983704a7
 
 ### `nodevin info`
 
-- **Description**: Displays information about currently running blockchain nodes, including version, status, ports, peer count, and latest block (for supported chain software).
+- **Description**: Displays information about currently running blockchain nodes, including version, status, ports, peer count, and latest block (for supported chain software, which includes the Ethereum execution clients; consensus clients are listed without peer and block data).
 - **Simple Example**: `nodevin info`
 
 #### Options:
@@ -507,6 +559,16 @@ nodevin request bitcoin --method getblockheader --params '["00000000c937983704a7
 
 *Description*: Deletes nodevin data for a network's testnet.
 *Usage*: `nodevin delete bitcoin --testnet`
+
+- **`delete ethereum --execution-client=<name>`**
+
+*Description*: Deletes the data of one Ethereum execution client. Because several clients can have data on disk and deletion can't be undone, the client must always be named; nodevin never infers it. Consensus client data is left in place.
+*Usage*: `nodevin delete ethereum --execution-client=geth`
+
+- **`delete <consensus-client>`**
+
+*Description*: Deletes one consensus client's data (for example to re-sync it from a checkpoint). It refuses while that client is running; run `nodevin stop ethereum` first.
+*Usage*: `nodevin delete lighthouse`
 
 - **`delete all`**
 
