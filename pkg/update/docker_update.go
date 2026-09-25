@@ -141,7 +141,7 @@ func getLocalImageDigest(cli *client.Client, image string) (string, error) {
 
 func updateDockerImage(container types.Container, image string) error {
 	imageShorthandName := strings.TrimPrefix(container.Names[0], "/")
-	composeFilePath, err := utils.FindComposeFile(imageShorthandName)
+	composeFilePath, err := utils.FindComposeFileForContainer(imageShorthandName)
 	if err != nil {
 		return err
 	}

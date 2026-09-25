@@ -30,7 +30,18 @@ import (
 )
 
 type NetworkInfo struct {
-	ContainerName    string
+	ContainerName string
+	// AlternateContainerNames are other containers the network's primary
+	// service may run as (e.g. Ethereum's execution client is chosen with
+	// --execution-client). ContainerName is the default. See ResolveContainerName.
+	AlternateContainerNames []string
+	// ClientFlag names the CLI flag that selects between ContainerName and
+	// AlternateContainerNames.
+	ClientFlag string
+	// PartOf marks a network that only ever runs inside another network's
+	// compose stack (e.g. lighthouse inside ethereum): it has no compose file
+	// of its own and cannot be stopped independently.
+	PartOf           string
 	DockerHubImage   string
 	SnapshotCID      string
 	RPCPort          int
@@ -181,6 +192,80 @@ var networkInfoMap = map[string]NetworkInfo{
 		StartMessage:     "\"Testing is the lifeblood of innovation and security.\"",
 		CommandSupported: false,
 	},
+	// "ethereum" registers the DEFAULT execution client ("reth") as its
+	// ContainerName; --execution-client can select any of the alternates. Use
+	// ResolveContainerName, not this static name, to find what is running.
+	"ethereum": {
+		ContainerName:           "reth",
+		AlternateContainerNames: []string{"geth", "erigon", "besu", "nethermind"},
+		ClientFlag:              "execution-client",
+		DockerHubImage:          "reth",
+		RPCPort:                 8547,
+		SnapshotCID:             "",
+		DataSize:                0,
+		SnapshotSize:            0,
+		StartMessage:            "\"Not your keys, not your coins.\" -- Ethereum Community",
+		CommandSupported:        true,
+	},
+	// The five consensus clients each get their own registry entry (mirroring
+	// how "ord" is registered despite being bundled with bitcoin) so logs,
+	// shell and delete can target one directly. They run inside the ethereum
+	// stack (PartOf), so stop goes through "ethereum".
+	"lighthouse": {
+		PartOf:           "ethereum",
+		ContainerName:    "lighthouse",
+		DockerHubImage:   "lighthouse",
+		RPCPort:          5052,
+		SnapshotCID:      "",
+		DataSize:         0,
+		SnapshotSize:     0,
+		StartMessage:     "\"Proof of stake is coming.\" -- Ethereum Foundation",
+		CommandSupported: false,
+	},
+	"prysm": {
+		PartOf:           "ethereum",
+		ContainerName:    "prysm",
+		DockerHubImage:   "prysm",
+		RPCPort:          3500,
+		SnapshotCID:      "",
+		DataSize:         0,
+		SnapshotSize:     0,
+		StartMessage:     "\"Proof of stake is coming.\" -- Ethereum Foundation",
+		CommandSupported: false,
+	},
+	"teku": {
+		PartOf:           "ethereum",
+		ContainerName:    "teku",
+		DockerHubImage:   "teku",
+		RPCPort:          5051,
+		SnapshotCID:      "",
+		DataSize:         0,
+		SnapshotSize:     0,
+		StartMessage:     "\"Proof of stake is coming.\" -- Ethereum Foundation",
+		CommandSupported: false,
+	},
+	"nimbus": {
+		PartOf:           "ethereum",
+		ContainerName:    "nimbus",
+		DockerHubImage:   "nimbus",
+		RPCPort:          5052,
+		SnapshotCID:      "",
+		DataSize:         0,
+		SnapshotSize:     0,
+		StartMessage:     "\"Proof of stake is coming.\" -- Ethereum Foundation",
+		CommandSupported: false,
+	},
+	"lodestar": {
+		PartOf:           "ethereum",
+		ContainerName:    "lodestar",
+		DockerHubImage:   "lodestar",
+		RPCPort:          9596,
+		SnapshotCID:      "",
+		DataSize:         0,
+		SnapshotSize:     0,
+		StartMessage:     "\"Proof of stake is coming.\" -- Ethereum Foundation",
+		CommandSupported: false,
+	},
 }
 
 func NetworkContainerMap() map[string]string {
@@ -259,7 +344,21 @@ func GetSnapshotCIDByNetwork(network string) (string, bool) {
 }
 
 func IsSupportedExtendedInfoSoftware(software string) bool {
-	return software == "bitcoin-core" || software == "litecoin-core" || software == "dogecoin-core" || software == "core-geth"
+	if software == "bitcoin-core" || software == "litecoin-core" || software == "dogecoin-core" || software == "core-geth" {
+		return true
+	}
+	return IsEthereumExecutionClient(software)
+}
+
+// IsEthereumExecutionClient reports whether name is one of the container names
+// the "ethereum" network can run its execution client as.
+func IsEthereumExecutionClient(name string) bool {
+	for _, candidate := range CandidateContainerNames("ethereum") {
+		if candidate == name {
+			return true
+		}
+	}
+	return false
 }
 
 // Expands a leading "~" or "~/" in path to the current user's home directory.

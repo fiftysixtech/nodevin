@@ -29,6 +29,7 @@ import (
 	"github.com/fiftysixcrypto/nodevin/pkg/docker/compose"
 	"github.com/fiftysixcrypto/nodevin/pkg/nodes/bitcoin"
 	"github.com/fiftysixcrypto/nodevin/pkg/nodes/dogecoin"
+	"github.com/fiftysixcrypto/nodevin/pkg/nodes/ethereum"
 	ethereum_classic "github.com/fiftysixcrypto/nodevin/pkg/nodes/ethereum-classic"
 	"github.com/fiftysixcrypto/nodevin/pkg/nodes/ipfs"
 	"github.com/fiftysixcrypto/nodevin/pkg/nodes/litecoin"
@@ -60,6 +61,26 @@ func startNode(args []string) error {
 	containerName, exists := utils.GetFiftysixDockerhubContainerName(network)
 	if !exists {
 		return fmt.Errorf("unsupported blockchain network: %s", network)
+	}
+
+	// The "ethereum" registry entry only names the default execution client's
+	// image; the image actually pulled depends on --execution-client.
+	if network == "ethereum" {
+		executionClient, err := compose.SelectedExecutionClient()
+		if err != nil {
+			return err
+		}
+		containerName = "fiftysix/" + executionClient
+
+		// Fail before pulling multi-GB images if the consensus client cannot
+		// be started as asked.
+		consensusClient, err := compose.SelectedConsensusClient()
+		if err != nil {
+			return err
+		}
+		if _, err := compose.ResolveCheckpointSyncURL(consensusClient); err != nil {
+			return err
+		}
 	}
 
 	logger.LogInfo("Starting blockchain node for network: " + network)
@@ -207,6 +228,8 @@ func createComposeFileForNetwork(network string, cwd string) (string, error) {
 		return ipfs.CreateKuboComposeFile(cwd)
 	case "dogecoin":
 		return dogecoin.CreateDogecoinComposeFile(cwd)
+	case "ethereum":
+		return ethereum.CreateEthereumComposeFile(cwd)
 	case "ethereum-classic":
 		return ethereum_classic.CreateEthereumClassicComposeFile(cwd)
 	default:

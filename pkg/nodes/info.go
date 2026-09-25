@@ -192,10 +192,10 @@ func getLatestBlocks(containerName string) (int, int) {
 // field) used by bitcoin-core/litecoin-core/dogecoin-core.
 func isEthereumStyleRPC(name string) bool {
 	switch name {
-	case "core-geth", "core-geth-testnet", "ethereum-classic", "ethereum-classic-testnet":
+	case "core-geth", "core-geth-testnet", "ethereum-classic", "ethereum-classic-testnet", "ethereum":
 		return true
 	default:
-		return false
+		return utils.IsEthereumExecutionClient(name)
 	}
 }
 
@@ -326,6 +326,10 @@ func getLocalEndpointByContainerName(containerName string) string {
 		url = "http://127.0.0.1:8545"
 	} else if containerName == "core-geth-testnet" {
 		url = "http://127.0.0.1:8546"
+	} else if utils.IsEthereumExecutionClient(containerName) {
+		// Whichever execution client the "ethereum" network runs as, its
+		// JSON-RPC is published on the same host port.
+		url = fmt.Sprintf("http://127.0.0.1:%d", utils.NetworkDefaultRPCPorts()["ethereum"])
 	}
 
 	return url
@@ -392,8 +396,7 @@ func displayNodeDirectoryInfo(networkFilter string) {
 
 	// Iterate over each supported network and calculate its directory size
 	for _, network := range strings.Split(networks, ", ") {
-		containerName, exists := utils.GetDefaultLocalMappedContainerName(network)
-		if !exists {
+		if _, exists := utils.GetDefaultLocalMappedContainerName(network); !exists {
 			logger.LogError("Unsupported blockchain network: " + network)
 			continue
 		}
@@ -402,14 +405,14 @@ func displayNodeDirectoryInfo(networkFilter string) {
 			continue
 		}
 
-		networkDir := filepath.Join(nodevinDataDir, containerName)
-		size, err := getDirectorySize(networkDir)
-		sizeDescription := "unknown"
-		if err == nil {
-			printed++
-			sizeDescription = utils.GetSizeDescription(size)
-			// Output the formatted row with network name, size, and directory path
-			fmt.Fprintf(w, "| %s\t %s\t %s\n", network, sizeDescription, networkDir)
+		for _, entry := range dataDirEntries(network) {
+			networkDir := filepath.Join(nodevinDataDir, entry.container)
+			size, err := getDirectorySize(networkDir)
+			if err == nil {
+				printed++
+				// Output the formatted row with network name, size, and directory path
+				fmt.Fprintf(w, "| %s\t %s\t %s\n", entry.label, utils.GetSizeDescription(size), networkDir)
+			}
 		}
 	}
 
@@ -490,15 +493,78 @@ func getNodeVersionFromEnv(containerID string) string {
 	// Traverse to find environment variables
 	if len(inspectData) > 0 {
 		if config, ok := inspectData[0]["Config"].(map[string]interface{}); ok {
+			image, _ := config["Image"].(string)
+			var env []string
 			if envVars, ok := config["Env"].([]interface{}); ok {
 				for _, envVar := range envVars {
-					if envStr, ok := envVar.(string); ok && strings.HasPrefix(envStr, "NODE_VERSION=") {
-						return strings.TrimPrefix(envStr, "NODE_VERSION=")
+					if envStr, ok := envVar.(string); ok {
+						env = append(env, envStr)
 					}
 				}
 			}
+			return versionFromEnv(image, env)
 		}
 	}
 
 	return "unknown"
+}
+
+// versionFromEnv finds a container's software version in its environment.
+// Most images set NODE_VERSION; the Ethereum images each name theirs after the
+// client (RETH_VERSION, BESU_CLIENT_VERSION, NIMBUS_CLIENT_VERSION, ...), and
+// Lodestar's is just CLIENT_VERSION.
+func versionFromEnv(image string, env []string) string {
+	name := image
+	if i := strings.LastIndex(name, "/"); i >= 0 {
+		name = name[i+1:]
+	}
+	if i := strings.Index(name, ":"); i >= 0 {
+		name = name[:i]
+	}
+	prefix := strings.ToUpper(strings.ReplaceAll(name, "-", "_"))
+
+	lookup := func(match func(key string) bool) string {
+		for _, entry := range env {
+			if key, value, ok := strings.Cut(entry, "="); ok && match(key) && value != "" {
+				return value
+			}
+		}
+		return ""
+	}
+
+	if v := lookup(func(k string) bool { return k == "NODE_VERSION" }); v != "" {
+		return v
+	}
+	if prefix != "" {
+		if v := lookup(func(k string) bool { return strings.HasPrefix(k, prefix+"_") && strings.HasSuffix(k, "VERSION") }); v != "" {
+			return v
+		}
+	}
+	if v := lookup(func(k string) bool { return k == "CLIENT_VERSION" }); v != "" {
+		return v
+	}
+	return "unknown"
+}
+
+type dataDirEntry struct {
+	label     string
+	container string
+}
+
+// dataDirEntries lists the data directories to report for network. A network
+// whose primary service can run as several clients (Ethereum) reports every
+// client, since each keeps its own data and several can be on disk at once;
+// every other network has just its one directory.
+func dataDirEntries(network string) []dataDirEntry {
+	candidates := utils.CandidateContainerNames(network)
+	if len(candidates) <= 1 {
+		container, _ := utils.GetDefaultLocalMappedContainerName(network)
+		return []dataDirEntry{{network, container}}
+	}
+
+	var entries []dataDirEntry
+	for _, candidate := range candidates {
+		entries = append(entries, dataDirEntry{fmt.Sprintf("%s (%s)", network, candidate), candidate})
+	}
+	return entries
 }

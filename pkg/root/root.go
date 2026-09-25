@@ -87,6 +87,13 @@ func init() {
 	rootCmd.PersistentFlags().String("ord-litecoin-rpc-user", "", "(ord-litecoin only) Username passed in via command for the Litecoin JSON RPC connection (default: falls back to --ord-rpc-user, then \"user\")")
 	rootCmd.PersistentFlags().String("ord-litecoin-rpc-pass", "", "(ord-litecoin only) Password passed in via command for the Litecoin JSON RPC connection (default: falls back to --ord-rpc-pass, then \"fiftysix\")")
 
+	// Ethereum specific flags
+	rootCmd.PersistentFlags().String("execution-client", "reth", "Ethereum execution client to run (reth, geth, erigon, besu, nethermind)")
+	rootCmd.PersistentFlags().String("consensus-client", "lighthouse", "Ethereum consensus client to run alongside the execution client (lighthouse, prysm, teku, nimbus, lodestar), or \"none\" to run the execution client standalone")
+	rootCmd.PersistentFlags().String("checkpoint-sync-url", "", "Checkpoint sync provider URL the Ethereum consensus client starts from (required unless --consensus-client=none)")
+	rootCmd.PersistentFlags().String("consensus-image", "", "Docker image to use for the consensus client (default: derived from --consensus-client)")
+	rootCmd.PersistentFlags().String("consensus-version", "latest", "Version of Docker image to use for the consensus client (tag -- ex: latest, 8.2.2)")
+
 	// IPFS specific flags
 	rootCmd.PersistentFlags().Bool("ipfs-cluster", false, "Run ipfs-cluster software ord alongside the IPFS node")
 	rootCmd.PersistentFlags().String("ipfs-cluster-image", "fiftysix/ipfs-cluster", "Docker image to use for ipfs-cluster (image name -- ex: fiftysix/ipfs-cluster)")
@@ -140,6 +147,13 @@ func init() {
 	viper.BindPFlag("ord-litecoin-cookie-auth", rootCmd.PersistentFlags().Lookup("ord-litecoin-cookie-auth"))
 	viper.BindPFlag("ord-litecoin-rpc-user", rootCmd.PersistentFlags().Lookup("ord-litecoin-rpc-user"))
 	viper.BindPFlag("ord-litecoin-rpc-pass", rootCmd.PersistentFlags().Lookup("ord-litecoin-rpc-pass"))
+
+	// Ethereum specific flags
+	viper.BindPFlag("execution-client", rootCmd.PersistentFlags().Lookup("execution-client"))
+	viper.BindPFlag("consensus-client", rootCmd.PersistentFlags().Lookup("consensus-client"))
+	viper.BindPFlag("checkpoint-sync-url", rootCmd.PersistentFlags().Lookup("checkpoint-sync-url"))
+	viper.BindPFlag("consensus-image", rootCmd.PersistentFlags().Lookup("consensus-image"))
+	viper.BindPFlag("consensus-version", rootCmd.PersistentFlags().Lookup("consensus-version"))
 
 	// IPFS specific flags
 	viper.BindPFlag("ipfs-cluster", rootCmd.PersistentFlags().Lookup("ipfs-cluster"))

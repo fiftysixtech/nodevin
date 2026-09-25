@@ -60,9 +60,12 @@ var deleteCmd = &cobra.Command{
 // deleteNetworkDirectory stops the node for networkName and removes its data.
 // It refuses to remove the data of a node that is still running.
 func deleteNetworkDirectory(baseDir, networkName string) error {
-	containerName, exists := utils.GetDefaultLocalMappedContainerName(networkName)
-	if !exists {
-		return fmt.Errorf("unsupported blockchain network: %s", networkName)
+	// Networks whose primary service can run as several clients (Ethereum's
+	// --execution-client) never have a client inferred here: deleting the
+	// wrong one's data is not recoverable.
+	containerName, err := utils.ExplicitContainerName(networkName)
+	if err != nil {
+		return err
 	}
 
 	if utils.CheckIfTestnetOrTestnetNetworkFlag() {
@@ -74,20 +77,44 @@ func deleteNetworkDirectory(baseDir, networkName string) error {
 		return fmt.Errorf("data for network not found: %s", networkDir)
 	}
 
-	// Stop network docker container, then check it really stopped: a failed
-	// stop must never lead to deleting the data of a live node.
-	if err := stopNode(networkName); err != nil {
-		logger.LogError("Could not stop the node: " + err.Error())
-	}
-	if err := ensureNotRunning([]string{containerName}); err != nil {
-		return err
+	if owner, inStack := utils.StackOwner(networkName); inStack {
+		// Runs inside another network's stack: there is nothing to stop here,
+		// but its data must not be removed from under it.
+		running, err := runningContainers([]string{containerName})
+		if err == nil && len(running) > 0 {
+			return fmt.Errorf("refusing to delete data: %s is running as part of %s. Run `%s stop %s` first", containerName, owner, utils.GetNodevinExecutable(), owner)
+		}
+	} else {
+		// Stop network docker container, then check it really stopped: a failed
+		// stop must never lead to deleting the data of a live node.
+		if err := stopNode(networkName); err != nil {
+			logger.LogError("Could not stop the node: " + err.Error())
+		}
+		if err := ensureNotRunning([]string{containerName}); err != nil {
+			return err
+		}
 	}
 
 	if err := docker.ForceRemoveAll(networkDir); err != nil {
 		return fmt.Errorf("failed to remove data for network %s: %w", networkName, err)
 	}
 
+	// The generated stack file for a deleted execution client would otherwise
+	// linger and make later commands think that client still has a footprint.
+	if len(utils.CandidateContainerNames(networkName)) > 1 {
+		os.Remove(filepath.Join(baseDir, "docker-compose_"+containerName+".yml"))
+	}
+
 	logger.LogInfo(fmt.Sprintf("Successfully removed %s data directory", networkName))
+
+	// Components of this network's stack (Ethereum's consensus client) keep
+	// their own data and are only deleted when named explicitly.
+	for _, component := range utils.ComponentNetworks(networkName) {
+		name, _ := utils.GetDefaultLocalMappedContainerName(component)
+		if _, err := os.Stat(filepath.Join(baseDir, name)); err == nil {
+			logger.LogInfo(fmt.Sprintf("Note: %s data was left in place. Remove it with `%s delete %s`.", component, utils.GetNodevinExecutable(), component))
+		}
+	}
 	return nil
 }
 
@@ -97,11 +124,7 @@ func deleteAllDirectories(baseDir string) error {
 		logger.LogError("Could not stop all nodes: " + err.Error())
 	}
 
-	var containers []string
-	for _, containerName := range utils.NetworkContainerMap() {
-		containers = append(containers, containerName)
-	}
-	if err := ensureNotRunning(containers); err != nil {
+	if err := ensureNotRunning(utils.AllContainerNames()); err != nil {
 		return err
 	}
 

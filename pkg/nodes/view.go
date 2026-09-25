@@ -54,6 +54,11 @@ func fetchNodeSizes() map[string]int64 {
 			logger.LogError("Unsupported blockchain network: " + network)
 			continue
 		}
+		// A network with selectable clients reports the one that is present;
+		// if that is ambiguous, fall back to the default client's directory.
+		if resolved, err := utils.ResolveContainerName(network); err == nil {
+			containerName = resolved
+		}
 
 		networkDir := filepath.Join(nodevinDataDir, containerName)
 		size, err := getDirectorySize(networkDir)
@@ -112,6 +117,9 @@ func getNodevinName(network string) string {
 	case "core-geth":
 		return "Classicvin"
 	default:
+		if utils.IsEthereumExecutionClient(strings.ToLower(network)) {
+			return "Ethvin"
+		}
 		return "Nodevin"
 	}
 }
@@ -127,6 +135,9 @@ func getSoftwareNetworkName(softwareName string) string {
 	case "core-geth":
 		return "ethereum-classic"
 	default:
+		if utils.IsEthereumExecutionClient(softwareName) {
+			return "ethereum"
+		}
 		return ""
 	}
 }
