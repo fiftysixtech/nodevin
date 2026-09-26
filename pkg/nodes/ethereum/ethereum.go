@@ -36,32 +36,39 @@ import (
 // per-client differences (flag names, "--flag=value" requirement, hard-fail
 // vs. graceful startup) are large enough that a shared abstraction would
 // just be a switch statement wearing a trench coat.
-func consensusClientComposeConfig(consensusClient string) (compose.NetworkConfig, error) {
+//
+// network is the consensus client's own registry name: "lighthouse" on
+// mainnet, "lighthouse-testnet" on Sepolia.
+func consensusClientComposeConfig(consensusClient, network string) (compose.NetworkConfig, error) {
 	switch consensusClient {
 	case "lighthouse":
-		return compose.GetLighthouseNetworkComposeConfig(consensusClient)
+		return compose.GetLighthouseNetworkComposeConfig(network)
 	case "prysm":
-		return compose.GetPrysmNetworkComposeConfig(consensusClient)
+		return compose.GetPrysmNetworkComposeConfig(network)
 	case "teku":
-		return compose.GetTekuNetworkComposeConfig(consensusClient)
+		return compose.GetTekuNetworkComposeConfig(network)
 	case "nimbus":
-		return compose.GetNimbusNetworkComposeConfig(consensusClient)
+		return compose.GetNimbusNetworkComposeConfig(network)
 	case "lodestar":
-		return compose.GetLodestarNetworkComposeConfig(consensusClient)
+		return compose.GetLodestarNetworkComposeConfig(network)
 	default:
 		return compose.NetworkConfig{}, fmt.Errorf("unsupported --consensus-client: %s", consensusClient)
 	}
 }
 
-// conflictingContainers returns the running Ethereum stack containers that are
-// not part of the stack about to be started. Two stacks would fight over host
-// ports and the shared network, and silently replacing a running node is not
-// something `start` should do, so the caller refuses instead.
+// conflictingContainers returns the running Ethereum stack containers, from
+// either the mainnet or the Sepolia stack, that are not part of the stack about
+// to be started. Two stacks would fight over host ports and the shared
+// network, and silently replacing a running node is not something `start`
+// should do, so the caller refuses instead.
 func conflictingContainers(running []string, executionClient, consensusClient string) []string {
-	members := utils.CandidateContainerNames("ethereum")
-	for _, component := range utils.ComponentNetworks("ethereum") {
-		name, _ := utils.GetDefaultLocalMappedContainerName(component)
-		members = append(members, name)
+	var members []string
+	for _, network := range []string{"ethereum", "ethereum-testnet"} {
+		members = append(members, utils.CandidateContainerNames(network)...)
+		for _, component := range utils.ComponentNetworks(network) {
+			name, _ := utils.GetDefaultLocalMappedContainerName(component)
+			members = append(members, name)
+		}
 	}
 
 	isMember := make(map[string]bool, len(members))
@@ -78,8 +85,36 @@ func conflictingContainers(running []string, executionClient, consensusClient st
 	return conflicts
 }
 
+// stopCommands names what stops the given conflicting containers: the mainnet
+// stack and the Sepolia stack are stopped separately.
+func stopCommands(conflicts []string) string {
+	var mainnet, testnet bool
+	for _, name := range conflicts {
+		if strings.HasSuffix(name, "-testnet") {
+			testnet = true
+		} else {
+			mainnet = true
+		}
+	}
+
+	exe := utils.GetNodevinExecutable()
+	var commands []string
+	if mainnet {
+		commands = append(commands, fmt.Sprintf("`%s stop ethereum`", exe))
+	}
+	if testnet {
+		commands = append(commands, fmt.Sprintf("`%s stop ethereum --testnet`", exe))
+	}
+	return strings.Join(commands, " and ")
+}
+
 func CreateEthereumComposeFile(cwd string) (string, error) {
-	const network = "ethereum"
+	network := "ethereum"
+	consensusSuffix := ""
+	if utils.CheckIfTestnetOrTestnetNetworkFlag() {
+		network = "ethereum-testnet"
+		consensusSuffix = "-testnet"
+	}
 
 	ethereumBaseComposeConfig, err := compose.GetEthereumNetworkComposeConfig(network)
 	if err != nil {
@@ -97,14 +132,14 @@ func CreateEthereumComposeFile(cwd string) (string, error) {
 	}
 
 	executionClient := ethereumBaseComposeConfig.ContainerName
-	paired := consensusClient
-	if paired == "none" {
+	paired := consensusClient + consensusSuffix
+	if consensusClient == "none" {
 		paired = ""
 	}
 	if running, err := utils.RunningContainerNames(); err == nil {
 		if conflicts := conflictingContainers(running, executionClient, paired); len(conflicts) > 0 {
-			return "", fmt.Errorf("cannot start %s: %s already running as part of the ethereum stack. Run `%s stop ethereum` first",
-				executionClient, strings.Join(conflicts, ", "), utils.GetNodevinExecutable())
+			return "", fmt.Errorf("cannot start %s: %s already running as part of an ethereum stack. Run %s first",
+				executionClient, strings.Join(conflicts, ", "), stopCommands(conflicts))
 		}
 	}
 
@@ -134,7 +169,7 @@ func CreateEthereumComposeFile(cwd string) (string, error) {
 		return "", err
 	}
 
-	consensusComposeConfig, err := consensusClientComposeConfig(consensusClient)
+	consensusComposeConfig, err := consensusClientComposeConfig(consensusClient, consensusClient+consensusSuffix)
 	if err != nil {
 		return "", err
 	}
@@ -146,7 +181,7 @@ func CreateEthereumComposeFile(cwd string) (string, error) {
 	consensusComposeConfig.Image = consensusImage
 	consensusComposeConfig.Version = consensusVersion
 
-	consensusComposeConfig.Command, err = compose.WithCheckpointSync(consensusClient, checkpointURL, consensusComposeConfig.Command)
+	consensusComposeConfig.Command, err = compose.WithCheckpointSync(consensusClient, compose.EthereumChain(network), checkpointURL, consensusComposeConfig.Command)
 	if err != nil {
 		return "", err
 	}
@@ -154,7 +189,7 @@ func CreateEthereumComposeFile(cwd string) (string, error) {
 	composeFilePath, err := compose.CreateComposeFile(
 		ethereumBaseComposeConfig.ContainerName,
 		ethereumBaseComposeConfig,
-		[]string{consensusClient},
+		[]string{consensusClient + consensusSuffix},
 		[]compose.NetworkConfig{consensusComposeConfig},
 		cwd)
 

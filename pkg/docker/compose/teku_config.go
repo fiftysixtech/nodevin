@@ -18,66 +18,16 @@
 
 package compose
 
-import (
-	"fmt"
-	"path/filepath"
-
-	"github.com/fiftysixcrypto/nodevin/internal/utils"
-)
+import "fmt"
 
 // GetTekuNetworkComposeConfig builds the compose config for Teku paired with
 // whichever execution client --execution-client selects. See
-// GetLighthouseNetworkComposeConfig and node-images'
-// docs/ethereum-execution-consensus-pairing.md for the shared reasoning.
+// GetLighthouseNetworkComposeConfig for the shared reasoning.
 //
-// Teku's own CLI has no subcommand (unlike lighthouse's "bn" or prysm's
-// "beacon-chain") - the client name alone is the beacon node command.
+// Unlike Lighthouse/Prysm/Lodestar, Teku has no "beacon"/"bn" subcommand, and
+// its execution flags are --ee-endpoint / --ee-jwt-secret-file.
 func GetTekuNetworkComposeConfig(network string) (NetworkConfig, error) {
-	executionClient, err := SelectedExecutionClient()
-	if err != nil {
-		return NetworkConfig{}, err
-	}
-
-	execMountVolume, err := executionClientMountVolume(executionClient)
-	if err != nil {
-		return NetworkConfig{}, err
-	}
-
-	nodevinDataDir, err := utils.GetNodevinDataDir()
-	if err != nil {
-		return NetworkConfig{}, err
-	}
-
-	localPath := filepath.Join(nodevinDataDir, "teku")
-	localChainDataPath := filepath.Join(localPath, "teku")
-
-	return NetworkConfig{
-		Image:         "fiftysix/teku",
-		Version:       "latest",
-		ContainerName: "teku",
-		Command: fmt.Sprintf(
-			"teku --ee-endpoint %s --ee-jwt-secret-file %s",
-			executionEngineEndpoint(executionClient),
-			executionJWTPath(executionClient),
-		),
-		Ports: []string{"127.0.0.1:5051:5051", "9000:9000", "9000:9000/udp"},
-		Volumes: []string{
-			fmt.Sprintf("%s:/node/teku", localChainDataPath),
-			execMountVolume,
-		},
-		Networks: []string{"ethereum-net"},
-		NetworkDefs: map[string]NetworkDetails{
-			"ethereum-net": {
-				Driver: "bridge",
-			},
-		},
-		VolumeDefs: map[string]VolumeDetails{
-			"teku-data": {
-				Labels: map[string]string{
-					"nodevin.blockchain.software": "teku",
-				},
-			},
-		},
-		LocalPath: localPath,
-	}, nil
+	return consensusConfig("teku", network, []string{"127.0.0.1:5051:5051", "9000:9000", "9000:9000/udp"}, func(engineEndpoint, jwtPath, chain string) string {
+		return fmt.Sprintf("teku --ee-endpoint %s --ee-jwt-secret-file %s --network %s", engineEndpoint, jwtPath, chain)
+	})
 }

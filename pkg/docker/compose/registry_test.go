@@ -57,6 +57,12 @@ var networkBuilders = []struct {
 	{"teku", GetTekuNetworkComposeConfig},
 	{"nimbus", GetNimbusNetworkComposeConfig},
 	{"lodestar", GetLodestarNetworkComposeConfig},
+	{"ethereum-testnet", GetEthereumNetworkComposeConfig},
+	{"lighthouse-testnet", GetLighthouseNetworkComposeConfig},
+	{"prysm-testnet", GetPrysmNetworkComposeConfig},
+	{"teku-testnet", GetTekuNetworkComposeConfig},
+	{"nimbus-testnet", GetNimbusNetworkComposeConfig},
+	{"lodestar-testnet", GetLodestarNetworkComposeConfig},
 }
 
 // consensusClients are mutually exclusive alternatives for the same
@@ -72,6 +78,14 @@ var consensusClients = map[string]bool{
 	"teku":       true,
 	"nimbus":     true,
 	"lodestar":   true,
+	// The Sepolia stack's consensus clients publish the same host ports as
+	// mainnet's: only one Ethereum stack runs at a time (start refuses
+	// otherwise).
+	"lighthouse-testnet": true,
+	"prysm-testnet":      true,
+	"teku-testnet":       true,
+	"nimbus-testnet":     true,
+	"lodestar-testnet":   true,
 }
 
 // TestRegistryConsistency asserts, for every registered network, that its

@@ -42,8 +42,12 @@ var stopNodeCmd = &cobra.Command{
 func stopNode(network string) error {
 	logger.LogInfo("Stopping blockchain node...")
 
-	if owner, ok := utils.StackOwner(network); ok {
-		return fmt.Errorf("%s runs as part of %s and cannot be stopped on its own; use `%s stop %s` to stop the whole stack", network, owner, utils.GetNodevinExecutable(), owner)
+	if owner, ok := utils.StackOwner(utils.EffectiveNetwork(network)); ok {
+		stopStack := fmt.Sprintf("%s stop %s", utils.GetNodevinExecutable(), strings.TrimSuffix(owner, "-testnet"))
+		if strings.HasSuffix(owner, "-testnet") {
+			stopStack += " --testnet"
+		}
+		return fmt.Errorf("%s runs as part of %s and cannot be stopped on its own; use `%s` to stop the whole stack", network, owner, stopStack)
 	}
 
 	containerName, err := utils.ResolveContainerName(network)
@@ -56,7 +60,8 @@ func stopNode(network string) error {
 		return err
 	}
 
-	if utils.CheckIfTestnetOrTestnetNetworkFlag() {
+	// The Ethereum stack was already resolved to its "-testnet" names.
+	if utils.CheckIfTestnetOrTestnetNetworkFlag() && !strings.HasSuffix(containerName, "-testnet") {
 		containerName = containerName + "-testnet"
 	}
 

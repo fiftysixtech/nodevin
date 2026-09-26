@@ -117,3 +117,32 @@ func TestVersionFromEnv(t *testing.T) {
 		})
 	}
 }
+
+// The Sepolia stack's execution clients are geth-family RPC nodes on the
+// testnet stack's own RPC port, and map back to "ethereum-testnet".
+func TestEthereumTestnetExecutionClients_InfoAndView(t *testing.T) {
+	wantURL := fmt.Sprintf("http://127.0.0.1:%d", utils.NetworkDefaultRPCPorts()["ethereum-testnet"])
+	if wantURL == fmt.Sprintf("http://127.0.0.1:%d", utils.NetworkDefaultRPCPorts()["ethereum"]) {
+		t.Fatal("mainnet and Sepolia must publish RPC on different ports")
+	}
+
+	for _, name := range append([]string{"ethereum-testnet"}, utils.CandidateContainerNames("ethereum-testnet")...) {
+		t.Run(name, func(t *testing.T) {
+			if !isEthereumStyleRPC(name) {
+				t.Errorf("isEthereumStyleRPC(%q) = false, want true", name)
+			}
+			if name == "ethereum-testnet" {
+				return
+			}
+			if !utils.IsSupportedExtendedInfoSoftware(name) {
+				t.Errorf("IsSupportedExtendedInfoSoftware(%q) = false, want true", name)
+			}
+			if got := getLocalEndpointByContainerName(name); got != wantURL {
+				t.Errorf("getLocalEndpointByContainerName(%q) = %q, want %q", name, got, wantURL)
+			}
+			if got := getSoftwareNetworkName(name); got != "ethereum-testnet" {
+				t.Errorf("getSoftwareNetworkName(%q) = %q, want ethereum-testnet", name, got)
+			}
+		})
+	}
+}

@@ -18,12 +18,7 @@
 
 package compose
 
-import (
-	"fmt"
-	"path/filepath"
-
-	"github.com/fiftysixcrypto/nodevin/internal/utils"
-)
+import "fmt"
 
 // GetNimbusNetworkComposeConfig builds the compose config for Nimbus paired
 // with whichever execution client --execution-client selects. See
@@ -32,53 +27,11 @@ import (
 //
 // Nimbus's (Nim/confutils) CLI only accepts --flag=value - a space-separated
 // "--flag value" is silently misparsed as two separate tokens. The "="
-// below is required, not stylistic.
+// below is required, not stylistic. The entrypoint prepends --network=mainnet
+// and Nimbus uses the last occurrence of a repeated flag, so naming the chain
+// here overrides it.
 func GetNimbusNetworkComposeConfig(network string) (NetworkConfig, error) {
-	executionClient, err := SelectedExecutionClient()
-	if err != nil {
-		return NetworkConfig{}, err
-	}
-
-	execMountVolume, err := executionClientMountVolume(executionClient)
-	if err != nil {
-		return NetworkConfig{}, err
-	}
-
-	nodevinDataDir, err := utils.GetNodevinDataDir()
-	if err != nil {
-		return NetworkConfig{}, err
-	}
-
-	localPath := filepath.Join(nodevinDataDir, "nimbus")
-	localChainDataPath := filepath.Join(localPath, "nimbus")
-
-	return NetworkConfig{
-		Image:         "fiftysix/nimbus",
-		Version:       "latest",
-		ContainerName: "nimbus",
-		Command: fmt.Sprintf(
-			"nimbus_beacon_node --el=%s --jwt-secret=%s",
-			executionEngineEndpoint(executionClient),
-			executionJWTPath(executionClient),
-		),
-		Ports: []string{"127.0.0.1:5052:5052", "9000:9000", "9000:9000/udp", "9001:9001/udp"},
-		Volumes: []string{
-			fmt.Sprintf("%s:/node/nimbus", localChainDataPath),
-			execMountVolume,
-		},
-		Networks: []string{"ethereum-net"},
-		NetworkDefs: map[string]NetworkDetails{
-			"ethereum-net": {
-				Driver: "bridge",
-			},
-		},
-		VolumeDefs: map[string]VolumeDetails{
-			"nimbus-data": {
-				Labels: map[string]string{
-					"nodevin.blockchain.software": "nimbus",
-				},
-			},
-		},
-		LocalPath: localPath,
-	}, nil
+	return consensusConfig("nimbus", network, []string{"127.0.0.1:5052:5052", "9000:9000", "9000:9000/udp", "9001:9001/udp"}, func(engineEndpoint, jwtPath, chain string) string {
+		return fmt.Sprintf("nimbus_beacon_node --el=%s --jwt-secret=%s --network=%s", engineEndpoint, jwtPath, chain)
+	})
 }

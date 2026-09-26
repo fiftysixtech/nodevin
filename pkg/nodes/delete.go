@@ -68,7 +68,8 @@ func deleteNetworkDirectory(baseDir, networkName string) error {
 		return err
 	}
 
-	if utils.CheckIfTestnetOrTestnetNetworkFlag() {
+	// The Ethereum stack was already resolved to its "-testnet" names.
+	if utils.CheckIfTestnetOrTestnetNetworkFlag() && !strings.HasSuffix(containerName, "-testnet") {
 		containerName = containerName + "-testnet"
 	}
 
@@ -77,12 +78,16 @@ func deleteNetworkDirectory(baseDir, networkName string) error {
 		return fmt.Errorf("data for network not found: %s", networkDir)
 	}
 
-	if owner, inStack := utils.StackOwner(networkName); inStack {
+	if owner, inStack := utils.StackOwner(utils.EffectiveNetwork(networkName)); inStack {
 		// Runs inside another network's stack: there is nothing to stop here,
 		// but its data must not be removed from under it.
 		running, err := runningContainers([]string{containerName})
 		if err == nil && len(running) > 0 {
-			return fmt.Errorf("refusing to delete data: %s is running as part of %s. Run `%s stop %s` first", containerName, owner, utils.GetNodevinExecutable(), owner)
+			stopStack := fmt.Sprintf("%s stop %s", utils.GetNodevinExecutable(), strings.TrimSuffix(owner, "-testnet"))
+			if strings.HasSuffix(owner, "-testnet") {
+				stopStack += " --testnet"
+			}
+			return fmt.Errorf("refusing to delete data: %s is running as part of %s. Run `%s` first", containerName, owner, stopStack)
 		}
 	} else {
 		// Stop network docker container, then check it really stopped: a failed
@@ -109,7 +114,7 @@ func deleteNetworkDirectory(baseDir, networkName string) error {
 
 	// Components of this network's stack (Ethereum's consensus client) keep
 	// their own data and are only deleted when named explicitly.
-	for _, component := range utils.ComponentNetworks(networkName) {
+	for _, component := range utils.ComponentNetworks(utils.EffectiveNetwork(networkName)) {
 		name, _ := utils.GetDefaultLocalMappedContainerName(component)
 		if _, err := os.Stat(filepath.Join(baseDir, name)); err == nil {
 			logger.LogInfo(fmt.Sprintf("Note: %s data was left in place. Remove it with `%s delete %s`.", component, utils.GetNodevinExecutable(), component))

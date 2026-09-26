@@ -208,3 +208,122 @@ func TestFindComposeFileForContainer(t *testing.T) {
 		}
 	}
 }
+
+func useTestnet(t *testing.T) {
+	t.Helper()
+	viper.Set("testnet", true)
+	t.Cleanup(func() { viper.Set("testnet", false) })
+}
+
+func TestEffectiveNetwork(t *testing.T) {
+	cases := []struct {
+		name    string
+		testnet bool
+		network string
+		want    string
+	}{
+		{"ethereum without the flag", false, "ethereum", "ethereum"},
+		{"ethereum with --testnet", true, "ethereum", "ethereum-testnet"},
+		{"a consensus client with --testnet", true, "lighthouse", "lighthouse-testnet"},
+		{"already the testnet name", true, "ethereum-testnet", "ethereum-testnet"},
+		{"other networks keep applying the suffix themselves", true, "bitcoin", "bitcoin"},
+		{"unknown networks pass through", true, "nope", "nope"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			viper.Set("testnet", c.testnet)
+			t.Cleanup(func() { viper.Set("testnet", false) })
+			if got := EffectiveNetwork(c.network); got != c.want {
+				t.Errorf("EffectiveNetwork(%q) = %q, want %q", c.network, got, c.want)
+			}
+		})
+	}
+}
+
+// With --testnet the resolver looks at the Sepolia stack only, and the
+// --execution-client flag names a client ("geth") that runs as "geth-testnet".
+func TestResolveContainerName_Testnet(t *testing.T) {
+	t.Run("finds the running testnet client, ignoring mainnet's", func(t *testing.T) {
+		setupResolve(t, "", []string{"geth", "erigon-testnet"})
+		useTestnet(t)
+		if got, err := ResolveContainerName("ethereum"); err != nil || got != "erigon-testnet" {
+			t.Errorf("got (%q, %v), want (erigon-testnet, nil)", got, err)
+		}
+	})
+
+	t.Run("mainnet ignores a running testnet client", func(t *testing.T) {
+		setupResolve(t, "", []string{"geth", "erigon-testnet"})
+		if got, err := ResolveContainerName("ethereum"); err != nil || got != "geth" {
+			t.Errorf("got (%q, %v), want (geth, nil)", got, err)
+		}
+	})
+
+	t.Run("the client flag selects the testnet variant", func(t *testing.T) {
+		setupResolve(t, "besu", nil)
+		useTestnet(t)
+		if got, err := ResolveContainerName("ethereum"); err != nil || got != "besu-testnet" {
+			t.Errorf("got (%q, %v), want (besu-testnet, nil)", got, err)
+		}
+	})
+
+	t.Run("nothing anywhere falls back to the default testnet client", func(t *testing.T) {
+		setupResolve(t, "", nil)
+		useTestnet(t)
+		if got, err := ResolveContainerName("ethereum"); err != nil || got != "reth-testnet" {
+			t.Errorf("got (%q, %v), want (reth-testnet, nil)", got, err)
+		}
+	})
+
+	t.Run("finds a testnet client by its data dir", func(t *testing.T) {
+		setupResolve(t, "", nil, "nethermind-testnet", "reth")
+		useTestnet(t)
+		if got, err := ResolveContainerName("ethereum"); err != nil || got != "nethermind-testnet" {
+			t.Errorf("got (%q, %v), want (nethermind-testnet, nil)", got, err)
+		}
+	})
+
+	t.Run("a consensus client resolves to its testnet container", func(t *testing.T) {
+		setupResolve(t, "", nil)
+		useTestnet(t)
+		if got, err := ResolveContainerName("lighthouse"); err != nil || got != "lighthouse-testnet" {
+			t.Errorf("got (%q, %v), want (lighthouse-testnet, nil)", got, err)
+		}
+	})
+}
+
+func TestExplicitContainerName_Testnet(t *testing.T) {
+	setupResolve(t, "", nil, "geth-testnet")
+	useTestnet(t)
+	if _, err := ExplicitContainerName("ethereum"); err == nil || !strings.Contains(err.Error(), "geth-testnet") {
+		t.Fatalf("error = %v, want one requiring the flag and naming the testnet data found", err)
+	}
+
+	viper.Set("execution-client", "geth")
+	if got, err := ExplicitContainerName("ethereum"); err != nil || got != "geth-testnet" {
+		t.Errorf("got (%q, %v), want (geth-testnet, nil)", got, err)
+	}
+}
+
+func TestEthereumExecutionNetwork(t *testing.T) {
+	for name, want := range map[string]string{
+		"reth": "ethereum", "nethermind": "ethereum",
+		"reth-testnet": "ethereum-testnet", "besu-testnet": "ethereum-testnet",
+		"lighthouse": "", "core-geth": "", "bitcoin-core": "",
+	} {
+		if got := EthereumExecutionNetwork(name); got != want {
+			t.Errorf("EthereumExecutionNetwork(%q) = %q, want %q", name, got, want)
+		}
+	}
+}
+
+func TestAllContainerNamesCoversTheTestnetStack(t *testing.T) {
+	all := make(map[string]bool)
+	for _, name := range AllContainerNames() {
+		all[name] = true
+	}
+	for _, want := range []string{"reth-testnet", "nethermind-testnet", "lighthouse-testnet", "lodestar-testnet"} {
+		if !all[want] {
+			t.Errorf("AllContainerNames() is missing %q", want)
+		}
+	}
+}
