@@ -234,3 +234,113 @@ func TestDisplayNodeDirectoryInfo_ListsEveryEthereumClient(t *testing.T) {
 		t.Errorf("a client with no data must not be listed:\n%s", out)
 	}
 }
+
+func useTestnetFlag(t *testing.T) {
+	t.Helper()
+	viper.Set("testnet", true)
+	t.Cleanup(func() { viper.Set("testnet", false) })
+}
+
+func TestStopNode_TestnetFindsTheRunningTestnetClient(t *testing.T) {
+	dataDir := useDataDir(t)
+	testnetFile := writeComposeFile(t, dataDir, "geth-testnet")
+	fake := installFakeDocker(t, true, false)
+	fake.setRunning(t, "geth-testnet", "lighthouse-testnet")
+	useTestnetFlag(t)
+
+	if err := stopNode("ethereum"); err != nil {
+		t.Fatalf("stopNode(ethereum --testnet) error: %v", err)
+	}
+	if !strings.Contains(fake.calls(t), testnetFile+" down") {
+		t.Errorf("expected the testnet stack to be brought down, calls:\n%s", fake.calls(t))
+	}
+}
+
+// Stopping mainnet must not touch a running Sepolia stack, and vice versa.
+func TestStopNode_MainnetLeavesTheTestnetStackAlone(t *testing.T) {
+	dataDir := useDataDir(t)
+	writeComposeFile(t, dataDir, "reth-testnet")
+	fake := installFakeDocker(t, false, false)
+	fake.setRunning(t, "reth-testnet")
+
+	// Like any network that was never started, there is no mainnet stack file
+	// to stop - that is an error, but it must not reach the testnet stack.
+	if err := stopNode("ethereum"); err == nil {
+		t.Error("expected an error: there is no mainnet stack to stop")
+	}
+	if strings.Contains(fake.calls(t), " down") {
+		t.Errorf("nothing on mainnet is running, so nothing should be stopped, calls:\n%s", fake.calls(t))
+	}
+}
+
+func TestStopNode_TestnetConsensusClientPointsAtTheTestnetStack(t *testing.T) {
+	useDataDir(t)
+	installFakeDocker(t, true, false)
+	useTestnetFlag(t)
+
+	err := stopNode("lighthouse")
+	if err == nil || !strings.Contains(err.Error(), "stop ethereum --testnet") {
+		t.Fatalf("error = %v, want one pointing at `stop ethereum --testnet`", err)
+	}
+}
+
+func TestDeleteNetworkDirectory_TestnetTouchesOnlyTestnetData(t *testing.T) {
+	dataDir := useDataDir(t)
+	dirs := makeNodeDirs(t, dataDir, "geth", "geth-testnet", "lighthouse", "lighthouse-testnet")
+	testnetFile := writeComposeFile(t, dataDir, "geth-testnet")
+	mainnetFile := writeComposeFile(t, dataDir, "geth")
+	installFakeDocker(t, true, false)
+	useExecutionClient(t, "geth")
+	useTestnetFlag(t)
+
+	if err := deleteNetworkDirectory(dataDir, "ethereum"); err != nil {
+		t.Fatalf("deleteNetworkDirectory() error: %v", err)
+	}
+	if exists(dirs["geth-testnet"]) || exists(testnetFile) {
+		t.Error("expected the geth-testnet data and stack file to be removed")
+	}
+	for _, kept := range []string{"geth", "lighthouse", "lighthouse-testnet"} {
+		if !exists(dirs[kept]) {
+			t.Errorf("%s data must be left alone", kept)
+		}
+	}
+	if !exists(mainnetFile) {
+		t.Error("the mainnet stack file must be left alone")
+	}
+}
+
+func TestDeleteNetworkDirectory_TestnetRequiresTheClientFlag(t *testing.T) {
+	dataDir := useDataDir(t)
+	dirs := makeNodeDirs(t, dataDir, "reth-testnet")
+	installFakeDocker(t, false, false)
+	useTestnetFlag(t)
+
+	err := deleteNetworkDirectory(dataDir, "ethereum")
+	if err == nil || !strings.Contains(err.Error(), "--execution-client") {
+		t.Fatalf("error = %v, want one requiring --execution-client", err)
+	}
+	if !exists(dirs["reth-testnet"]) {
+		t.Error("nothing may be deleted when the client was not named")
+	}
+}
+
+func TestDeleteNetworkDirectory_TestnetConsensusClient(t *testing.T) {
+	dataDir := useDataDir(t)
+	dirs := makeNodeDirs(t, dataDir, "lighthouse", "lighthouse-testnet")
+	installFakeDocker(t, false, false)
+	useTestnetFlag(t)
+
+	if err := deleteNetworkDirectory(dataDir, "lighthouse"); err != nil {
+		t.Fatalf("deleteNetworkDirectory() error: %v", err)
+	}
+	if exists(dirs["lighthouse-testnet"]) || !exists(dirs["lighthouse"]) {
+		t.Error("expected only the lighthouse-testnet data to be removed")
+	}
+}
+
+func TestDataDirEntries_Testnet(t *testing.T) {
+	got := dataDirEntries("ethereum-testnet")
+	if len(got) != 5 || got[0] != (dataDirEntry{"ethereum-testnet (reth-testnet)", "reth-testnet"}) {
+		t.Errorf("dataDirEntries(ethereum-testnet) = %v, want one entry per testnet execution client", got)
+	}
+}

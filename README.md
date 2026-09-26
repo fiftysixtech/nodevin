@@ -47,7 +47,7 @@ nodevin start bitcoin
 nodevin start ethereum --checkpoint-sync-url <provider-url>
 ```
 
-By default this runs reth with Lighthouse. Pick others with `--execution-client` (reth, geth, erigon, besu, nethermind) and `--consensus-client` (lighthouse, prysm, teku, nimbus, lodestar). See [Ethereum options](./docs/cli-commands.md#ethereum-options).
+By default this runs reth with Lighthouse. Pick others with `--execution-client` (reth, geth, erigon, besu, nethermind) and `--consensus-client` (lighthouse, prysm, teku, nimbus, lodestar). Add `--testnet` for the Sepolia testnet. See [Ethereum options](./docs/cli-commands.md#ethereum-options).
 
 ---
 

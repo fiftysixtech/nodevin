@@ -266,6 +266,77 @@ var networkInfoMap = map[string]NetworkInfo{
 		StartMessage:     "\"Proof of stake is coming.\" -- Ethereum Foundation",
 		CommandSupported: false,
 	},
+	// Sepolia runs as its own stack: every container and data directory carries
+	// the "-testnet" suffix, so it never touches mainnet data. Only one
+	// Ethereum stack (mainnet or testnet) runs at a time, since the consensus
+	// clients publish the same host ports in both.
+	"ethereum-testnet": {
+		ContainerName:           "reth-testnet",
+		AlternateContainerNames: []string{"geth-testnet", "erigon-testnet", "besu-testnet", "nethermind-testnet"},
+		ClientFlag:              "execution-client",
+		DockerHubImage:          "reth",
+		RPCPort:                 8549,
+		SnapshotCID:             "",
+		DataSize:                0,
+		SnapshotSize:            0,
+		StartMessage:            "\"Testing is the lifeblood of innovation and security.\"",
+		CommandSupported:        false,
+	},
+	"lighthouse-testnet": {
+		PartOf:           "ethereum-testnet",
+		ContainerName:    "lighthouse-testnet",
+		DockerHubImage:   "lighthouse",
+		RPCPort:          5052,
+		SnapshotCID:      "",
+		DataSize:         0,
+		SnapshotSize:     0,
+		StartMessage:     "\"Testing is the lifeblood of innovation and security.\"",
+		CommandSupported: false,
+	},
+	"prysm-testnet": {
+		PartOf:           "ethereum-testnet",
+		ContainerName:    "prysm-testnet",
+		DockerHubImage:   "prysm",
+		RPCPort:          3500,
+		SnapshotCID:      "",
+		DataSize:         0,
+		SnapshotSize:     0,
+		StartMessage:     "\"Testing is the lifeblood of innovation and security.\"",
+		CommandSupported: false,
+	},
+	"teku-testnet": {
+		PartOf:           "ethereum-testnet",
+		ContainerName:    "teku-testnet",
+		DockerHubImage:   "teku",
+		RPCPort:          5051,
+		SnapshotCID:      "",
+		DataSize:         0,
+		SnapshotSize:     0,
+		StartMessage:     "\"Testing is the lifeblood of innovation and security.\"",
+		CommandSupported: false,
+	},
+	"nimbus-testnet": {
+		PartOf:           "ethereum-testnet",
+		ContainerName:    "nimbus-testnet",
+		DockerHubImage:   "nimbus",
+		RPCPort:          5052,
+		SnapshotCID:      "",
+		DataSize:         0,
+		SnapshotSize:     0,
+		StartMessage:     "\"Testing is the lifeblood of innovation and security.\"",
+		CommandSupported: false,
+	},
+	"lodestar-testnet": {
+		PartOf:           "ethereum-testnet",
+		ContainerName:    "lodestar-testnet",
+		DockerHubImage:   "lodestar",
+		RPCPort:          9596,
+		SnapshotCID:      "",
+		DataSize:         0,
+		SnapshotSize:     0,
+		StartMessage:     "\"Testing is the lifeblood of innovation and security.\"",
+		CommandSupported: false,
+	},
 }
 
 func NetworkContainerMap() map[string]string {
@@ -351,14 +422,29 @@ func IsSupportedExtendedInfoSoftware(software string) bool {
 }
 
 // IsEthereumExecutionClient reports whether name is one of the container names
-// the "ethereum" network can run its execution client as.
+// an Ethereum stack (mainnet or testnet) can run its execution client as.
 func IsEthereumExecutionClient(name string) bool {
-	for _, candidate := range CandidateContainerNames("ethereum") {
-		if candidate == name {
-			return true
+	for _, network := range []string{"ethereum", "ethereum-testnet"} {
+		for _, candidate := range CandidateContainerNames(network) {
+			if candidate == name {
+				return true
+			}
 		}
 	}
 	return false
+}
+
+// EthereumExecutionNetwork returns the registry key ("ethereum" or
+// "ethereum-testnet") whose stack an execution client container belongs to, or
+// "" if name is not an Ethereum execution client.
+func EthereumExecutionNetwork(name string) string {
+	if !IsEthereumExecutionClient(name) {
+		return ""
+	}
+	if strings.HasSuffix(name, "-testnet") {
+		return "ethereum-testnet"
+	}
+	return "ethereum"
 }
 
 // Expands a leading "~" or "~/" in path to the current user's home directory.

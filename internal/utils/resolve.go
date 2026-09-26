@@ -128,13 +128,33 @@ func explicitClient(network string, info NetworkInfo) (string, bool, error) {
 	if value == "" {
 		return "", false, nil
 	}
+	// The flag names a client ("geth"); the testnet stack runs it as
+	// "geth-testnet".
 	for _, candidate := range CandidateContainerNames(network) {
-		if candidate == value {
-			return value, true, nil
+		if candidate == value || candidate == value+"-testnet" {
+			return candidate, true, nil
 		}
 	}
 	return "", false, fmt.Errorf("unsupported --%s: %s (supported: %s)",
 		info.ClientFlag, value, strings.Join(CandidateContainerNames(network), ", "))
+}
+
+// EffectiveNetwork returns the registry key to use for network under the
+// current flags: for the Ethereum stack, --testnet selects "<network>-testnet"
+// (the Sepolia stack). Every other network is returned unchanged, so their
+// callers keep applying the "-testnet" suffix themselves.
+func EffectiveNetwork(network string) string {
+	info, ok := networkInfoMap[network]
+	if !ok || (info.ClientFlag == "" && info.PartOf == "") || strings.HasSuffix(network, "-testnet") {
+		return network
+	}
+	if !CheckIfTestnetOrTestnetNetworkFlag() {
+		return network
+	}
+	if _, ok := networkInfoMap[network+"-testnet"]; ok {
+		return network + "-testnet"
+	}
+	return network
 }
 
 // hasFootprint reports whether a container has left anything behind: a data
@@ -157,6 +177,7 @@ func hasFootprint(container string) bool {
 // the default. If several match at a step it returns *AmbiguousClientError
 // rather than guessing.
 func ResolveContainerName(network string) (string, error) {
+	network = EffectiveNetwork(network)
 	info, ok := networkInfoMap[network]
 	if !ok {
 		return "", fmt.Errorf("unsupported blockchain network: %s", network)
@@ -210,6 +231,7 @@ func ResolveContainerName(network string) (string, error) {
 // a network with selectable clients it requires the client to be named with
 // its flag, and never infers it. Other networks resolve as usual.
 func ExplicitContainerName(network string) (string, error) {
+	network = EffectiveNetwork(network)
 	info, ok := networkInfoMap[network]
 	if !ok {
 		return "", fmt.Errorf("unsupported blockchain network: %s", network)

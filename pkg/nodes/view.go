@@ -135,10 +135,7 @@ func getSoftwareNetworkName(softwareName string) string {
 	case "core-geth":
 		return "ethereum-classic"
 	default:
-		if utils.IsEthereumExecutionClient(softwareName) {
-			return "ethereum"
-		}
-		return ""
+		return utils.EthereumExecutionNetwork(softwareName)
 	}
 }
 

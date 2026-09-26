@@ -192,7 +192,7 @@ func getLatestBlocks(containerName string) (int, int) {
 // field) used by bitcoin-core/litecoin-core/dogecoin-core.
 func isEthereumStyleRPC(name string) bool {
 	switch name {
-	case "core-geth", "core-geth-testnet", "ethereum-classic", "ethereum-classic-testnet", "ethereum":
+	case "core-geth", "core-geth-testnet", "ethereum-classic", "ethereum-classic-testnet", "ethereum", "ethereum-testnet":
 		return true
 	default:
 		return utils.IsEthereumExecutionClient(name)
@@ -327,9 +327,9 @@ func getLocalEndpointByContainerName(containerName string) string {
 	} else if containerName == "core-geth-testnet" {
 		url = "http://127.0.0.1:8546"
 	} else if utils.IsEthereumExecutionClient(containerName) {
-		// Whichever execution client the "ethereum" network runs as, its
-		// JSON-RPC is published on the same host port.
-		url = fmt.Sprintf("http://127.0.0.1:%d", utils.NetworkDefaultRPCPorts()["ethereum"])
+		// Whichever execution client an Ethereum stack runs as, its JSON-RPC is
+		// published on that stack's port (mainnet and Sepolia differ).
+		url = fmt.Sprintf("http://127.0.0.1:%d", utils.NetworkDefaultRPCPorts()[utils.EthereumExecutionNetwork(containerName)])
 	}
 
 	return url

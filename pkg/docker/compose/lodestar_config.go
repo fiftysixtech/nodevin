@@ -18,63 +18,14 @@
 
 package compose
 
-import (
-	"fmt"
-	"path/filepath"
-
-	"github.com/fiftysixcrypto/nodevin/internal/utils"
-)
+import "fmt"
 
 // GetLodestarNetworkComposeConfig builds the compose config for Lodestar
 // paired with whichever execution client --execution-client selects. See
 // GetLighthouseNetworkComposeConfig and node-images'
 // docs/ethereum-execution-consensus-pairing.md for the shared reasoning.
 func GetLodestarNetworkComposeConfig(network string) (NetworkConfig, error) {
-	executionClient, err := SelectedExecutionClient()
-	if err != nil {
-		return NetworkConfig{}, err
-	}
-
-	execMountVolume, err := executionClientMountVolume(executionClient)
-	if err != nil {
-		return NetworkConfig{}, err
-	}
-
-	nodevinDataDir, err := utils.GetNodevinDataDir()
-	if err != nil {
-		return NetworkConfig{}, err
-	}
-
-	localPath := filepath.Join(nodevinDataDir, "lodestar")
-	localChainDataPath := filepath.Join(localPath, "lodestar")
-
-	return NetworkConfig{
-		Image:         "fiftysix/lodestar",
-		Version:       "latest",
-		ContainerName: "lodestar",
-		Command: fmt.Sprintf(
-			"beacon --execution.urls %s --jwtSecret %s",
-			executionEngineEndpoint(executionClient),
-			executionJWTPath(executionClient),
-		),
-		Ports: []string{"127.0.0.1:9596:9596", "9000:9000", "9000:9000/udp"},
-		Volumes: []string{
-			fmt.Sprintf("%s:/node/lodestar", localChainDataPath),
-			execMountVolume,
-		},
-		Networks: []string{"ethereum-net"},
-		NetworkDefs: map[string]NetworkDetails{
-			"ethereum-net": {
-				Driver: "bridge",
-			},
-		},
-		VolumeDefs: map[string]VolumeDetails{
-			"lodestar-data": {
-				Labels: map[string]string{
-					"nodevin.blockchain.software": "lodestar",
-				},
-			},
-		},
-		LocalPath: localPath,
-	}, nil
+	return consensusConfig("lodestar", network, []string{"127.0.0.1:9596:9596", "9000:9000", "9000:9000/udp"}, func(engineEndpoint, jwtPath, chain string) string {
+		return fmt.Sprintf("beacon --execution.urls %s --jwtSecret %s --network %s", engineEndpoint, jwtPath, chain)
+	})
 }

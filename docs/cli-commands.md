@@ -180,11 +180,20 @@ nodevin start ethereum \
 
 *Ports*: Ethereum publishes its JSON-RPC on `127.0.0.1:8547`, WebSocket on `127.0.0.1:8548` and peer port `30305` (the canonical 8545/8546/30303/30304 are already used by Ethereum Classic). The Engine API (8551) is never published to the host. The consensus client's beacon REST API is published on `127.0.0.1` only (Lighthouse and Nimbus `5052`, Prysm `3500`, Teku `5051`, Lodestar `9596`); its peer ports stay public (`9000` for Lighthouse, Teku, Nimbus and Lodestar, plus `9001/udp` for Nimbus; `13000` and `12000/udp` for Prysm). Override with `--ports`.
 
+*Sepolia testnet*: add `--testnet` to run the Sepolia testnet instead of mainnet, with the same client flags:
+
+```bash
+nodevin start ethereum --testnet --checkpoint-sync-url=<sepolia-provider-url>
+```
+
+The checkpoint provider must serve Sepolia (for example `https://checkpoint-sync.sepolia.ethpandaops.io`; the [public list](https://eth-clients.github.io/checkpoint-sync-endpoints/) has more). The Sepolia stack is entirely separate from mainnet: its containers, data directories (`~/.nodevin/data/<client>-testnet`), volumes and Docker network all carry a `-testnet` suffix, so it never touches mainnet data. Its execution client publishes JSON-RPC on `127.0.0.1:8549`, WebSocket on `127.0.0.1:8550` and peer port `30306`; the consensus clients use the same ports as on mainnet. Use `--testnet` with `stop`, `logs`, `shell` and `delete` to target it (`nodevin stop ethereum --testnet`, `nodevin delete ethereum --testnet --execution-client=geth`), and `nodevin request ethereum-testnet --method eth_chainId` to query it. Sepolia is the only Ethereum testnet supported so far.
+
+**Lodestar does not work on Sepolia.** In four 15-minute runs on Linux (including with `--nat`) Lodestar found no Sepolia peers, although the stack itself comes up correctly and Lodestar does find peers on mainnet; the cause is unknown. `nodevin start ethereum --testnet --consensus-client=lodestar` prints a warning. Use Lighthouse, Prysm, Teku or Nimbus for Sepolia.
+
 *Notes*:
-- Ethereum testnets are not supported yet.
 - Nimbus starts from your checkpoint provider with its `trustedNodeSync` command, run once when it has no database yet.
-- Only one Ethereum stack can run at a time: `start` refuses to start over a different running execution or consensus client. Run `nodevin stop ethereum` first.
-- Compatibility caveat: in testing on Docker Desktop for Mac, Nimbus and Lodestar found no peers while Lighthouse, Prysm and Teku did. This looked like a Docker Desktop UDP port publishing issue, and Linux hosts have not been tested.
+- Only one Ethereum stack can run at a time, mainnet or Sepolia: `start` refuses to start over a running execution or consensus client from either. Run `nodevin stop ethereum` (or `nodevin stop ethereum --testnet`) first.
+- Compatibility caveat: in testing on Docker Desktop for Mac, Nimbus and Lodestar found no peers while Lighthouse, Prysm and Teku did. This looked like a Docker Desktop UDP port publishing issue: on Linux (verified on GitHub Actions Ubuntu runners) all five consensus clients find peers.
 - Mainnet Ethereum needs a lot of disk space and can take days to sync. The reth image defaults to archive mode.
 
 - **`--ipfs-cluster-image`**
@@ -312,7 +321,7 @@ nodevin start ethereum \
 
 *Note*: `--ports` replaces the node's default mappings entirely, so list every port you want published. For IPFS the defaults are `4001:4001`, `127.0.0.1:5001:5001` (RPC API) and `127.0.0.1:8080:8080` (gateway): the API and gateway are only reachable from the machine running the node. The API has admin-level access, so only publish it on other interfaces (for example `--ports="4001:4001,0.0.0.0:5001:5001"`) if you have put authentication or a firewall in front of it.
 
-*Note on RPC ports*: for every chain the JSON-RPC port is published on `127.0.0.1` only, and peer ports stay public so other nodes can connect: Bitcoin `127.0.0.1:8332` + `8333`, Litecoin `127.0.0.1:9332` + `9333`, Dogecoin `127.0.0.1:22555` + `22556`, Ethereum `127.0.0.1:8547` + `30305`, Ethereum Classic `127.0.0.1:8545` + `30303` (testnets use their own ports). To reach a node's RPC from another machine, list the mapping yourself, for example `--ports="0.0.0.0:8332:8332,8333:8333"`, and set your own `--rpc-user`/`--rpc-pass`: the defaults (`user`/`fiftysix`) are public, RPC is plain HTTP, and Ethereum Classic's RPC has no authentication at all. Prefer an SSH tunnel or a firewall rule to publishing RPC on a public interface. The `ord` web interface and the `ipfs-cluster` REST API are unchanged.
+*Note on RPC ports*: for every chain the JSON-RPC port is published on `127.0.0.1` only, and peer ports stay public so other nodes can connect: Bitcoin `127.0.0.1:8332` + `8333`, Litecoin `127.0.0.1:9332` + `9333`, Dogecoin `127.0.0.1:22555` + `22556`, Ethereum `127.0.0.1:8547` + `30305` (Sepolia `127.0.0.1:8549` + `30306`), Ethereum Classic `127.0.0.1:8545` + `30303` (testnets use their own ports). To reach a node's RPC from another machine, list the mapping yourself, for example `--ports="0.0.0.0:8332:8332,8333:8333"`, and set your own `--rpc-user`/`--rpc-pass`: the defaults (`user`/`fiftysix`) are public, RPC is plain HTTP, and Ethereum Classic's RPC has no authentication at all. Prefer an SSH tunnel or a firewall rule to publishing RPC on a public interface. The `ord` web interface and the `ipfs-cluster` REST API are unchanged.
 
 - **`--volumes`**
 
