@@ -97,6 +97,24 @@ func testnetConsensusWarning(consensusClient string) string {
 	return ""
 }
 
+// blobServingWarning describes what --blob-serving costs; "" when it is off.
+// The mainnet figure is ethPandaOps' estimate for a semi-supernode after
+// Fusaka (roughly half of a full supernode's 50-100 Mb/s sustained), not
+// something measured here.
+func blobServingWarning(mode, network string) string {
+	if mode == "" {
+		return ""
+	}
+	if network == "ethereum-testnet" {
+		return "Blob serving is on: the consensus client keeps extra data columns so L2 nodes can read blobs from it."
+	}
+	cost := "roughly 8-16 TB/month of bandwidth (an estimate)"
+	if mode == "full" {
+		cost = "roughly twice that of a semi-supernode: over 16 TB/month of bandwidth (an estimate)"
+	}
+	return "WARNING: blob serving is on: on mainnet this consensus client will use " + cost + ", plus extra disk. Make sure your plan allows it."
+}
+
 // stopCommands names what stops the given conflicting containers: the mainnet
 // stack and the Sepolia stack are stopped separately.
 func stopCommands(conflicts []string) string {
@@ -141,6 +159,14 @@ func CreateEthereumComposeFile(cwd string) (string, error) {
 	checkpointURL, err := compose.ResolveCheckpointSyncURL(consensusClient)
 	if err != nil {
 		return "", err
+	}
+
+	blobServing, err := compose.ResolveBlobServing(consensusClient)
+	if err != nil {
+		return "", err
+	}
+	if warning := blobServingWarning(blobServing, network); warning != "" {
+		logger.LogInfo(warning)
 	}
 
 	if consensusSuffix != "" {
@@ -198,6 +224,12 @@ func CreateEthereumComposeFile(cwd string) (string, error) {
 	// than duplicated in each of the five per-client builders.
 	consensusComposeConfig.Image = consensusImage
 	consensusComposeConfig.Version = consensusVersion
+
+	// Before the checkpoint wrapper: Nimbus's wrapper embeds this command.
+	consensusComposeConfig.Command, err = compose.WithBlobServing(consensusClient, blobServing, consensusComposeConfig.Command)
+	if err != nil {
+		return "", err
+	}
 
 	consensusComposeConfig.Command, err = compose.WithCheckpointSync(consensusClient, compose.EthereumChain(network), checkpointURL, consensusComposeConfig.Command)
 	if err != nil {

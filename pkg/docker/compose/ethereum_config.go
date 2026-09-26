@@ -118,6 +118,76 @@ func ResolveCheckpointSyncURL(consensusClient string) (string, error) {
 	return strings.TrimRight(raw, "/"), nil
 }
 
+// ResolveBlobServing returns the validated --blob-serving mode for a consensus
+// client: "" (off), "semi" or "full".
+//
+// L2 nodes (Arbitrum, Base) read the blobs their batches were posted in from
+// the L1 consensus client's beacon API. Since the Fusaka upgrade (PeerDAS) a
+// default beacon node only custodies a few "data columns" and cannot serve
+// whole blobs; a node that custodies at least half of the columns can
+// reconstruct every blob ("semi"), and one that custodies all of them ("full")
+// does not need to reconstruct at all, at a bandwidth cost.
+func ResolveBlobServing(consensusClient string) (string, error) {
+	mode := strings.TrimSpace(viper.GetString("blob-serving"))
+	if mode == "" {
+		return "", nil
+	}
+	if mode != "semi" && mode != "full" {
+		return "", fmt.Errorf("invalid --blob-serving %q: use \"semi\" or \"full\"", mode)
+	}
+	if consensusClient == "none" {
+		return "", fmt.Errorf("--blob-serving needs a consensus client (it makes the consensus client keep blob data); it cannot be used with --consensus-client=none")
+	}
+	if _, err := blobServingFlags(consensusClient, mode); err != nil {
+		return "", err
+	}
+	return mode, nil
+}
+
+// blobServingFlags returns the flags that make consensusClient serve blobs.
+// Each name was read from the pinned image's own --help. Teku has no
+// half-custody mode, so "semi" is refused for it rather than silently
+// becoming the much more bandwidth-hungry "full".
+func blobServingFlags(consensusClient, mode string) (string, error) {
+	switch consensusClient {
+	case "lighthouse", "prysm":
+		if mode == "semi" {
+			return "--semi-supernode", nil
+		}
+		return "--supernode", nil
+	case "lodestar":
+		if mode == "semi" {
+			return "--semiSupernode", nil
+		}
+		return "--supernode", nil
+	case "nimbus":
+		if mode == "semi" {
+			return "--light-supernode", nil
+		}
+		return "--peerdas-supernode", nil
+	case "teku":
+		if mode == "semi" {
+			return "", fmt.Errorf("teku has no half-custody mode: use --blob-serving=full for teku, or choose lighthouse, prysm, nimbus or lodestar for --blob-serving=semi")
+		}
+		return "--p2p-subscribe-all-custody-subnets-enabled=true", nil
+	default:
+		return "", fmt.Errorf("unsupported --consensus-client: %s", consensusClient)
+	}
+}
+
+// WithBlobServing returns command (a consensus client's base command) with the
+// flags that make the client serve blobs added; mode "" returns it unchanged.
+func WithBlobServing(consensusClient, mode, command string) (string, error) {
+	if mode == "" {
+		return command, nil
+	}
+	flags, err := blobServingFlags(consensusClient, mode)
+	if err != nil {
+		return "", err
+	}
+	return command + " " + flags, nil
+}
+
 // WithCheckpointSync returns command (a consensus client's base command) set up
 // to start from the checkpoint provider at checkpointURL.
 //

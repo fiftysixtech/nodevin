@@ -91,6 +91,8 @@ func init() {
 	rootCmd.PersistentFlags().String("execution-client", "reth", "Ethereum execution client to run (reth, geth, erigon, besu, nethermind)")
 	rootCmd.PersistentFlags().String("consensus-client", "lighthouse", "Ethereum consensus client to run alongside the execution client (lighthouse, prysm, teku, nimbus, lodestar), or \"none\" to run the execution client standalone")
 	rootCmd.PersistentFlags().String("checkpoint-sync-url", "", "Checkpoint sync provider URL the Ethereum consensus client starts from (required unless --consensus-client=none)")
+	rootCmd.PersistentFlags().String("blob-serving", "", "Make the Ethereum consensus client keep and serve the blob data L2 nodes (Arbitrum, Base) read: \"semi\" custodies half of the data columns (enough to reconstruct every blob), \"full\" all of them (more bandwidth); a bare --blob-serving means semi")
+	rootCmd.PersistentFlags().Lookup("blob-serving").NoOptDefVal = "semi"
 	rootCmd.PersistentFlags().String("consensus-image", "", "Docker image to use for the consensus client (default: derived from --consensus-client)")
 	rootCmd.PersistentFlags().String("consensus-version", "latest", "Version of Docker image to use for the consensus client (tag -- ex: latest, 8.2.2)")
 
@@ -152,6 +154,7 @@ func init() {
 	viper.BindPFlag("execution-client", rootCmd.PersistentFlags().Lookup("execution-client"))
 	viper.BindPFlag("consensus-client", rootCmd.PersistentFlags().Lookup("consensus-client"))
 	viper.BindPFlag("checkpoint-sync-url", rootCmd.PersistentFlags().Lookup("checkpoint-sync-url"))
+	viper.BindPFlag("blob-serving", rootCmd.PersistentFlags().Lookup("blob-serving"))
 	viper.BindPFlag("consensus-image", rootCmd.PersistentFlags().Lookup("consensus-image"))
 	viper.BindPFlag("consensus-version", rootCmd.PersistentFlags().Lookup("consensus-version"))
 
