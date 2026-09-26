@@ -232,8 +232,10 @@ func executionJWTPath(executionClient string) string {
 //     mainnet-oriented one before ours ("expects a single argument but 2 were
 //     provided"), so Sepolia's config is named directly and the RPC settings
 //     the injected config would have set are passed as options.
-//   - besu's published image still ships an entrypoint that only injects its
-//     config when started with no arguments and cannot take flags at all.
+//   - besu images published before 2026-09-26 ship an entrypoint that only
+//     injects its config when started with no arguments and cannot take flags
+//     at all. The current image takes flags, but a machine that already pulled
+//     an older one keeps it until it is updated, and this form works on both.
 func executionTestnetCommand(executionClient string) string {
 	switch executionClient {
 	case "reth":
