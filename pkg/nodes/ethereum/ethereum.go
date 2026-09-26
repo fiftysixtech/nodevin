@@ -85,6 +85,18 @@ func conflictingContainers(running []string, executionClient, consensusClient st
 	return conflicts
 }
 
+// testnetConsensusWarning returns a warning for consensus clients known not to
+// work on Sepolia, or "" if there is none. Lodestar 1.48.0 found no peers in
+// four 15-minute runs on Linux (including with --nat), while the same
+// command finds them on mainnet and the other four clients find them on
+// Sepolia; the cause was not found.
+func testnetConsensusWarning(consensusClient string) string {
+	if consensusClient == "lodestar" {
+		return "WARNING: Lodestar found no peers on the Sepolia testnet in testing, so this node is unlikely to sync. Use another --consensus-client (lighthouse, prysm, teku or nimbus) for Sepolia."
+	}
+	return ""
+}
+
 // stopCommands names what stops the given conflicting containers: the mainnet
 // stack and the Sepolia stack are stopped separately.
 func stopCommands(conflicts []string) string {
@@ -129,6 +141,12 @@ func CreateEthereumComposeFile(cwd string) (string, error) {
 	checkpointURL, err := compose.ResolveCheckpointSyncURL(consensusClient)
 	if err != nil {
 		return "", err
+	}
+
+	if consensusSuffix != "" {
+		if warning := testnetConsensusWarning(consensusClient); warning != "" {
+			logger.LogInfo(warning)
+		}
 	}
 
 	executionClient := ethereumBaseComposeConfig.ContainerName

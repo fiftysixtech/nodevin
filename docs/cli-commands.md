@@ -188,6 +188,8 @@ nodevin start ethereum --testnet --checkpoint-sync-url=<sepolia-provider-url>
 
 The checkpoint provider must serve Sepolia (for example `https://checkpoint-sync.sepolia.ethpandaops.io`; the [public list](https://eth-clients.github.io/checkpoint-sync-endpoints/) has more). The Sepolia stack is entirely separate from mainnet: its containers, data directories (`~/.nodevin/data/<client>-testnet`), volumes and Docker network all carry a `-testnet` suffix, so it never touches mainnet data. Its execution client publishes JSON-RPC on `127.0.0.1:8549`, WebSocket on `127.0.0.1:8550` and peer port `30306`; the consensus clients use the same ports as on mainnet. Use `--testnet` with `stop`, `logs`, `shell` and `delete` to target it (`nodevin stop ethereum --testnet`, `nodevin delete ethereum --testnet --execution-client=geth`), and `nodevin request ethereum-testnet --method eth_chainId` to query it. Sepolia is the only Ethereum testnet supported so far.
 
+**Lodestar does not work on Sepolia.** In four 15-minute runs on Linux (including with `--nat`) Lodestar found no Sepolia peers, although the stack itself comes up correctly and Lodestar does find peers on mainnet; the cause is unknown. `nodevin start ethereum --testnet --consensus-client=lodestar` prints a warning. Use Lighthouse, Prysm, Teku or Nimbus for Sepolia.
+
 *Notes*:
 - Nimbus starts from your checkpoint provider with its `trustedNodeSync` command, run once when it has no database yet.
 - Only one Ethereum stack can run at a time, mainnet or Sepolia: `start` refuses to start over a running execution or consensus client from either. Run `nodevin stop ethereum` (or `nodevin stop ethereum --testnet`) first.

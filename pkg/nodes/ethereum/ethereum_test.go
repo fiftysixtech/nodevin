@@ -204,3 +204,14 @@ func TestConflictingContainers_KnowsBothStacks(t *testing.T) {
 		})
 	}
 }
+
+func TestTestnetConsensusWarning(t *testing.T) {
+	if got := testnetConsensusWarning("lodestar"); !strings.Contains(got, "Lodestar") || !strings.Contains(got, "lighthouse") {
+		t.Errorf("warning for lodestar = %q, want one naming Lodestar and the alternatives", got)
+	}
+	for _, client := range []string{"lighthouse", "prysm", "teku", "nimbus", "none"} {
+		if got := testnetConsensusWarning(client); got != "" {
+			t.Errorf("warning for %s = %q, want none", client, got)
+		}
+	}
+}
