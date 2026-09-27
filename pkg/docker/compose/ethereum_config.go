@@ -253,6 +253,19 @@ func ethereumDockerNetwork(suffix string) string {
 	return "ethereum-net"
 }
 
+// EthereumDockerNetworkName returns the Docker network name nodevin's own
+// Ethereum stack runs on for the given stack suffix ("" for mainnet,
+// "-testnet" for Sepolia). An L2 node (Arbitrum, Base) that auto-attaches to a
+// local Ethereum stack joins this same network name in its own compose file;
+// since every nodevin compose file lives in, and is brought up from, the same
+// data directory, Docker Compose resolves both to the identical underlying
+// network (confirmed empirically: a second compose file declaring the same
+// network name attaches to the one already created by the first, rather than
+// creating a duplicate).
+func EthereumDockerNetworkName(suffix string) string {
+	return ethereumDockerNetwork(suffix)
+}
+
 // executionClientMountVolume returns the docker-compose volume entry that
 // mounts the selected execution client's entire host data directory,
 // read-only, into a consensus client's container at the identical absolute

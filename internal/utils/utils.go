@@ -337,6 +337,79 @@ var networkInfoMap = map[string]NetworkInfo{
 		StartMessage:     "\"Testing is the lifeblood of innovation and security.\"",
 		CommandSupported: false,
 	},
+	// Arbitrum (Nitro) is a single monolithic process - no execution/consensus
+	// split, no AlternateContainerNames - unlike every Ethereum image above. It
+	// depends on an Ethereum L1 (see compose.ResolveL1Endpoints), either
+	// nodevin's own running "ethereum" stack or an external L1 given with
+	// --l1-execution-rpc-url/--l1-beacon-url.
+	"arbitrum": {
+		ContainerName:    "nitro",
+		DockerHubImage:   "nitro",
+		RPCPort:          8552,
+		SnapshotCID:      "",
+		DataSize:         0,
+		SnapshotSize:     0,
+		StartMessage:     "\"Arbitrum Nitro: the security of Ethereum, the speed and cost of a rollup.\" -- Offchain Labs",
+		CommandSupported: true,
+	},
+	"arbitrum-testnet": {
+		ContainerName:    "nitro-testnet",
+		DockerHubImage:   "nitro",
+		RPCPort:          8556,
+		SnapshotCID:      "",
+		DataSize:         0,
+		SnapshotSize:     0,
+		StartMessage:     "\"Testing is the lifeblood of innovation and security.\"",
+		CommandSupported: false,
+	},
+	// Base splits into two containers - base-reth (execution) and
+	// base-consensus (rollup/consensus) - mirroring the Ethereum
+	// execution/consensus pairing above, but with a fixed pair (no
+	// --execution-client/--consensus-client choice) and a JWT shared as a
+	// value, not a file (see compose.GetBaseExecutionNetworkComposeConfig). It
+	// depends on an Ethereum L1 the same way Arbitrum does.
+	"base": {
+		ContainerName:    "base-reth",
+		DockerHubImage:   "base-reth",
+		RPCPort:          8558,
+		SnapshotCID:      "",
+		DataSize:         0,
+		SnapshotSize:     0,
+		StartMessage:     "\"Base: bringing the next billion users onchain.\"",
+		CommandSupported: true,
+	},
+	"base-consensus": {
+		PartOf:           "base",
+		ContainerName:    "base-consensus",
+		DockerHubImage:   "base-consensus",
+		RPCPort:          9545,
+		SnapshotCID:      "",
+		DataSize:         0,
+		SnapshotSize:     0,
+		StartMessage:     "\"Base: bringing the next billion users onchain.\"",
+		CommandSupported: false,
+	},
+	"base-testnet": {
+		ContainerName:    "base-reth-testnet",
+		DockerHubImage:   "base-reth",
+		RPCPort:          8563,
+		SnapshotCID:      "",
+		DataSize:         0,
+		SnapshotSize:     0,
+		StartMessage:     "\"Testing is the lifeblood of innovation and security.\"",
+		CommandSupported: false,
+	},
+	"base-consensus-testnet": {
+		PartOf:           "base-testnet",
+		ContainerName:    "base-consensus-testnet",
+		DockerHubImage:   "base-consensus",
+		RPCPort:          9546,
+		SnapshotCID:      "",
+		DataSize:         0,
+		SnapshotSize:     0,
+		StartMessage:     "\"Testing is the lifeblood of innovation and security.\"",
+		CommandSupported: false,
+	},
 }
 
 func NetworkContainerMap() map[string]string {

@@ -96,6 +96,12 @@ func init() {
 	rootCmd.PersistentFlags().String("consensus-image", "", "Docker image to use for the consensus client (default: derived from --consensus-client)")
 	rootCmd.PersistentFlags().String("consensus-version", "latest", "Version of Docker image to use for the consensus client (tag -- ex: latest, 8.2.2)")
 
+	// L1 dependency flags (Arbitrum, Base): both are required together to point
+	// at an external L1; leaving both unset auto-attaches to nodevin's own
+	// already-running Ethereum node instead (see --execution-client/--consensus-client)
+	rootCmd.PersistentFlags().String("l1-execution-rpc-url", "", "Ethereum L1 execution JSON-RPC endpoint for an L2 node (Arbitrum, Base) -- required together with --l1-beacon-url to use an external L1; leave both unset to auto-attach to nodevin's own running Ethereum node")
+	rootCmd.PersistentFlags().String("l1-beacon-url", "", "Ethereum L1 consensus (beacon) REST API endpoint for an L2 node (Arbitrum, Base), used to read blob data -- required together with --l1-execution-rpc-url to use an external L1; leave both unset to auto-attach to nodevin's own running Ethereum node")
+
 	// IPFS specific flags
 	rootCmd.PersistentFlags().Bool("ipfs-cluster", false, "Run ipfs-cluster software ord alongside the IPFS node")
 	rootCmd.PersistentFlags().String("ipfs-cluster-image", "fiftysix/ipfs-cluster", "Docker image to use for ipfs-cluster (image name -- ex: fiftysix/ipfs-cluster)")
@@ -157,6 +163,8 @@ func init() {
 	viper.BindPFlag("blob-serving", rootCmd.PersistentFlags().Lookup("blob-serving"))
 	viper.BindPFlag("consensus-image", rootCmd.PersistentFlags().Lookup("consensus-image"))
 	viper.BindPFlag("consensus-version", rootCmd.PersistentFlags().Lookup("consensus-version"))
+	viper.BindPFlag("l1-execution-rpc-url", rootCmd.PersistentFlags().Lookup("l1-execution-rpc-url"))
+	viper.BindPFlag("l1-beacon-url", rootCmd.PersistentFlags().Lookup("l1-beacon-url"))
 
 	// IPFS specific flags
 	viper.BindPFlag("ipfs-cluster", rootCmd.PersistentFlags().Lookup("ipfs-cluster"))
