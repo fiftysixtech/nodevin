@@ -1,6 +1,6 @@
 # Nodevin
 
-Nodevin allows anyone to run blockchain nodes effortlessly. It simplifies the process of setting up and managing nodes for various blockchains, ensuring they are always up-to-date with the latest software versions. With Nodevin, you can run nodes for Bitcoin, Litecoin, Dogecoin, Ethereum, Ethereum Classic, Arbitrum, Base, and IPFS with ease.
+Nodevin allows anyone to run blockchain nodes effortlessly. It simplifies the process of setting up and managing nodes for various blockchains, ensuring they are always up-to-date with the latest software versions. With Nodevin, you can run nodes for Bitcoin, Litecoin, Dogecoin, Ethereum, Ethereum Classic, Arbitrum, Base, BNB Smart Chain, and IPFS with ease.
 
 Our goal is to facilitate blockchain node standup and maintenance for every chain in the world, in service of a more decentralized internet.
 

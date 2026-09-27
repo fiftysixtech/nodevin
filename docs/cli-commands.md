@@ -253,6 +253,23 @@ nodevin start base --testnet \
 
 *What was verified*: both auto-attach (a real local Sepolia stack, container-name DNS resolution across separate compose files confirmed working) and an external L1 URL. `fiftysix/nitro` and `fiftysix/base-reth` both correctly resolved their L1's chain ID and connected over plain JSON-RPC; `fiftysix/base-consensus` completed the Engine API JWT handshake with `fiftysix/base-reth` (confirmed both containers wrote the identical secret) and began deriving from real L1 head data. Not run on mainnet. A real chain sync was not attempted against either — the local test L1 used didn't have deep-enough history for Nitro's snapshot-init flow to succeed, a data-depth limitation of the test environment, not the wiring.
 
+#### BNB Smart Chain options
+
+`nodevin start bsc` runs `fiftysix/bsc` — a BNB Smart Chain (BSC) node. Unlike Arbitrum and Base, BSC has no L1 dependency: it's a geth fork with the Parlia consensus engine built directly into the same monolithic process, so there is no execution/consensus split and no `--l1-*` flags apply here.
+
+BSC has no built-in chain config nodevin can select with a plain flag the way Ethereum mainnet/Sepolia have, so `fiftysix/bsc` bundles both networks' genesis/config and picks between them via an internal `NETWORK` environment variable, set automatically from `--testnet` — there is no separate CLI flag for it.
+
+JSON-RPC publishes on `127.0.0.1:8565` (`8567` testnet), WebSocket on `127.0.0.1:8566` (`8568` testnet), and P2P (BSC's own default port, `30311`, not Ethereum's `30303`) on `30311` (`30312` testnet) — mainnet and testnet use different host ports so both can run at once, same as Arbitrum/Base.
+
+```bash
+nodevin start bsc
+nodevin start bsc --testnet
+```
+
+Not yet snapshot-synced by nodevin — syncing from genesis is impractical on real BSC mainnet; see [node-images' BNB Smart Chain docs](https://github.com/fiftysixtech/node-images/blob/main/docs/bnb-smart-chain.md) for the manual `bnb-chain/bsc-snapshots` flow.
+
+*What was verified*: `nodevin start bsc` and `nodevin start bsc --testnet` both self-initialise from the bundled genesis on first start (no manual `geth init` step) and serve RPC with the correct chain ID — `0x38` (56) on mainnet, `0x61` (97) on testnet. Not run against a real, already-populated chain; not run on mainnet in the sense of joining real BSC mainnet peers.
+
 - **`--ipfs-cluster-image`**
 
 *Description*: Docker image to use for `ipfs-cluster`.
