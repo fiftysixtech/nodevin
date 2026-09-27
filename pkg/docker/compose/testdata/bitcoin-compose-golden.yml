@@ -19,7 +19,7 @@ services:
         container_name: init-config-bitcoin-core
         restart: "no"
         command: |-
-            /bin/sh -c "
+            -c "
             if [ ! -f /nodevin-volume/.copy-done ]; then
               mkdir -p /nodevin-volume/ &&
               cp -r * /nodevin-volume/ &&
@@ -28,6 +28,7 @@ services:
             else
               echo 'Volume not empty, skipping file copy';
             fi"
+        entrypoint: /bin/sh
         ports: []
         volumes:
             - bitcoin-core-init-volume:/init-volume

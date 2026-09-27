@@ -220,6 +220,39 @@ The checkpoint provider must serve Sepolia (for example `https://checkpoint-sync
 - Compatibility caveat: in testing on Docker Desktop for Mac, Nimbus and Lodestar found no peers while Lighthouse, Prysm and Teku did. This looked like a Docker Desktop UDP port publishing issue: on Linux (verified on GitHub Actions Ubuntu runners) all five consensus clients find peers.
 - Mainnet Ethereum needs a lot of disk space and can take days to sync. The reth image defaults to archive mode.
 
+#### Arbitrum and Base options
+
+`nodevin start arbitrum` and `nodevin start base` run an Arbitrum (Nitro) or Base (base-reth + base-consensus) L2 node. Both depend on an Ethereum L1: an execution JSON-RPC endpoint, and a consensus (beacon) endpoint that can serve blob sidecars (a default beacon node cannot, since Fusaka — see `--blob-serving` above).
+
+- **`--l1-execution-rpc-url`** / **`--l1-beacon-url`**
+
+*Description*: An external L1's execution JSON-RPC and beacon REST endpoints. Both must be set together to use an external L1 (a third-party provider, or an L1 not managed by nodevin); setting only one is an error.
+*Default*: unset — see auto-attach below.
+*Usage*: `--l1-execution-rpc-url=<url> --l1-beacon-url=<url>`
+
+*Auto-attach*: if neither flag is set, nodevin looks for its own already-running Ethereum node instead — the same execution/consensus client `--execution-client`/`--consensus-client` would pick for `nodevin start ethereum` (mainnet, or the Sepolia stack with `--testnet`) — and, if both of those containers are actually running, connects to them directly by container name over their stack's own Docker network. If it isn't running, `start` fails before pulling the L2's multi-GB image, naming the missing container(s) and suggesting `nodevin start ethereum ... --blob-serving` or the two `--l1-*-url` flags instead.
+
+*What to know before relying on this*: a freshly-started (or non-blob-serving) consensus client only has blobs from around when it started — see the "Start early" note under `--blob-serving` above. An L2 node pointed at such an L1 will not find the blobs its batches need until the L1 has run long enough.
+
+Example, mainnet, auto-attached to a local Ethereum node:
+```bash
+nodevin start ethereum --blob-serving
+nodevin start arbitrum
+```
+
+Example, testnet, external L1:
+```bash
+nodevin start base --testnet \
+  --l1-execution-rpc-url=https://ethereum-sepolia.example.com \
+  --l1-beacon-url=https://beacon-sepolia.example.com
+```
+
+*Arbitrum*: `nodevin start arbitrum` runs `fiftysix/nitro`, a single monolithic process — no execution/consensus split, no JWT of its own. `--chain.id`/`--parent-chain.id` are set automatically (`42161`/`1` on mainnet, `421614`/`11155111` with `--testnet`). JSON-RPC publishes on `127.0.0.1:8552`, WebSocket on `127.0.0.1:8553`, and the sequencer feed (relayed to other nodes, not admin-level) on `9642` — Sepolia uses `8556`/`8557`/`9643` so both can run at once. Not yet snapshot-synced by nodevin; see [node-images' Arbitrum docs](https://github.com/fiftysixtech/node-images/blob/main/docs/arbitrum.md) for the manual `--init.latest pruned --init.then-quit` flow.
+
+*Base*: `nodevin start base` runs `fiftysix/base-reth` (execution) and `fiftysix/base-consensus` (rollup/consensus) together, mirroring Ethereum's execution/consensus pairing — but unlike every Ethereum client here, the Engine API JWT between them is a **shared value**, not a shared file: nodevin generates one 32-byte secret per stack on first use, persists it (`~/.nodevin/data/base[-testnet]/jwt.hex`), and gives the same value to both containers as `BASE_NODE_L2_ENGINE_AUTH_RAW`, each of which writes its own local copy on startup. base-reth's JSON-RPC publishes on `127.0.0.1:8558` (`8563` testnet), base-consensus's on `127.0.0.1:9545` (`9546` testnet). Not yet snapshot-synced by nodevin; see [node-images' Base docs](https://github.com/fiftysixtech/node-images/blob/main/docs/base.md).
+
+*What was verified*: both auto-attach (a real local Sepolia stack, container-name DNS resolution across separate compose files confirmed working) and an external L1 URL. `fiftysix/nitro` and `fiftysix/base-reth` both correctly resolved their L1's chain ID and connected over plain JSON-RPC; `fiftysix/base-consensus` completed the Engine API JWT handshake with `fiftysix/base-reth` (confirmed both containers wrote the identical secret) and began deriving from real L1 head data. Not run on mainnet. A real chain sync was not attempted against either — the local test L1 used didn't have deep-enough history for Nitro's snapshot-init flow to succeed, a data-depth limitation of the test environment, not the wiring.
+
 - **`--ipfs-cluster-image`**
 
 *Description*: Docker image to use for `ipfs-cluster`.

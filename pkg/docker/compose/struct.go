@@ -95,17 +95,26 @@ type NetworkConfig struct {
 	// entrypoint), so a generic "Command must be non-empty" check doesn't
 	// need a hardcoded per-network allowlist to know that's expected.
 	CommandIsIntentionallyEmpty bool
-	Restart                     string
-	Ports                       []string
-	Volumes                     []string
-	Networks                    []string
-	Deploy                      Deploy
-	Environment                 map[string]string
-	NetworkDefs                 map[string]NetworkDetails
-	VolumeDefs                  map[string]VolumeDetails
-	LocalPath                   string
-	SnapshotSyncCID             string
-	LocalChainDataPath          string
-	SnapshotDataFilename        string
-	SnapshotSyncCommand         string
+	// SkipInitCopy marks that there is nothing worth seeding a fresh local
+	// data directory with from the image itself (no default config file the
+	// way bitcoin/litecoin-style images ship one), so the generic
+	// copy-image-files-into-the-volume init container should not run at all.
+	// Needed for images with no meaningful WORKDIR to copy from (Nitro's is
+	// /home/user, which holds large prover/machine files, not config - trying
+	// to copy them in also fails outright for a non-root image user like
+	// Nitro's, since `cp` cannot set permissions on the copies).
+	SkipInitCopy         bool
+	Restart              string
+	Ports                []string
+	Volumes              []string
+	Networks             []string
+	Deploy               Deploy
+	Environment          map[string]string
+	NetworkDefs          map[string]NetworkDetails
+	VolumeDefs           map[string]VolumeDetails
+	LocalPath            string
+	SnapshotSyncCID      string
+	LocalChainDataPath   string
+	SnapshotDataFilename string
+	SnapshotSyncCommand  string
 }

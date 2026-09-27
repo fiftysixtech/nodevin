@@ -136,6 +136,9 @@ func createExtraServices(extraServiceNames []string, extraServiceConfigs []Netwo
 		if viper.IsSet(fmt.Sprintf("%s-volumes", serviceName)) {
 			filesNeedCopy = false
 		}
+		if extraServiceConfigs[i].SkipInitCopy {
+			filesNeedCopy = false
+		}
 
 		// Get configuration for the current service
 		config := extraServiceConfigs[i]
@@ -231,7 +234,17 @@ func createExtraServices(extraServiceNames []string, extraServiceConfigs []Netwo
 				Image:         finalConfig.Image + ":" + finalConfig.Version,
 				ContainerName: initContainerName,
 				Restart:       "no",
-				Command: fmt.Sprintf(`/bin/sh -c "
+				// Entrypoint is explicitly "/bin/sh", not "" left to fall
+				// back on the image's own ENTRYPOINT: several images (Nitro,
+				// Base) always exec their own binary regardless of the
+				// command given, with no "else exec $@ verbatim" fallback the
+				// way geth/besu's entrypoints have, so this container would
+				// hand its shell script to the chain binary as CLI
+				// args instead of running it (confirmed - Nitro exits 1
+				// immediately on this). Overriding Entrypoint at the
+				// compose level bypasses the image's own ENTRYPOINT
+				// unconditionally, regardless of what it does.
+				Command: fmt.Sprintf(`-c "
 if [ ! -f /nodevin-volume-%s/.copy-done ]; then
   mkdir -p /nodevin-volume-%s/ &&
   cp -r * /nodevin-volume-%s/ &&
@@ -244,7 +257,7 @@ fi"`, serviceName, serviceName, serviceName, initSnapshotSyncCommand, serviceNam
 					fmt.Sprintf("%s:/init-volume-%s", initVolumeName, serviceName),
 					fmt.Sprintf("%s:/nodevin-volume-%s", config.LocalPath, serviceName),
 				},
-				Entrypoint: "",
+				Entrypoint: "/bin/sh",
 			}
 
 			// Add the init container to the services map
@@ -304,6 +317,9 @@ func CreateComposeFile(nodeName string, config NetworkConfig, extraServiceNames 
 
 	// If the user specified volume info, do not start the init volume
 	if viper.IsSet("volumes") || viper.IsSet("volume-definitions") || viper.IsSet("volume-labels") {
+		filesNeedCopy = false
+	}
+	if config.SkipInitCopy {
 		filesNeedCopy = false
 	}
 
@@ -422,7 +438,9 @@ func CreateComposeFile(nodeName string, config NetworkConfig, extraServiceNames 
 			Image:         finalConfig.Image + ":" + finalConfig.Version,
 			ContainerName: initContainerName,
 			Restart:       "no",
-			Command: fmt.Sprintf(`/bin/sh -c "
+			// See createExtraServices' identical initService for why
+			// Entrypoint is explicitly "/bin/sh" rather than "".
+			Command: fmt.Sprintf(`-c "
 if [ ! -f /nodevin-volume/.copy-done ]; then
   mkdir -p /nodevin-volume/ &&
   cp -r * /nodevin-volume/ &&
@@ -435,7 +453,7 @@ fi"`, initSnapshotSyncCommand),
 				fmt.Sprintf("%s:/init-volume", initVolumeName),
 				fmt.Sprintf("%s:/nodevin-volume", config.LocalPath),
 			},
-			Entrypoint: "",
+			Entrypoint: "/bin/sh",
 		}
 
 		// Add init container service to the services map

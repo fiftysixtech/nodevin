@@ -27,6 +27,8 @@ import (
 	"github.com/fiftysixcrypto/nodevin/internal/utils"
 	"github.com/fiftysixcrypto/nodevin/pkg/docker"
 	"github.com/fiftysixcrypto/nodevin/pkg/docker/compose"
+	"github.com/fiftysixcrypto/nodevin/pkg/nodes/arbitrum"
+	"github.com/fiftysixcrypto/nodevin/pkg/nodes/base"
 	"github.com/fiftysixcrypto/nodevin/pkg/nodes/bitcoin"
 	"github.com/fiftysixcrypto/nodevin/pkg/nodes/dogecoin"
 	"github.com/fiftysixcrypto/nodevin/pkg/nodes/ethereum"
@@ -82,6 +84,14 @@ func startNode(args []string) error {
 			return err
 		}
 		if _, err := compose.ResolveBlobServing(consensusClient); err != nil {
+			return err
+		}
+	}
+
+	// Arbitrum and Base both depend on an Ethereum L1; fail before pulling
+	// multi-GB images if it cannot be found (see compose.ResolveL1Endpoints).
+	if network == "arbitrum" || network == "base" {
+		if _, err := compose.ResolveL1Endpoints(utils.CheckIfTestnetOrTestnetNetworkFlag()); err != nil {
 			return err
 		}
 	}
@@ -235,6 +245,10 @@ func createComposeFileForNetwork(network string, cwd string) (string, error) {
 		return ethereum.CreateEthereumComposeFile(cwd)
 	case "ethereum-classic":
 		return ethereum_classic.CreateEthereumClassicComposeFile(cwd)
+	case "arbitrum":
+		return arbitrum.CreateArbitrumComposeFile(cwd)
+	case "base":
+		return base.CreateBaseComposeFile(cwd)
 	default:
 		return "", fmt.Errorf("unsupported network: %s", network)
 	}

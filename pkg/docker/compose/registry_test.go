@@ -63,7 +63,38 @@ var networkBuilders = []struct {
 	{"teku-testnet", GetTekuNetworkComposeConfig},
 	{"nimbus-testnet", GetNimbusNetworkComposeConfig},
 	{"lodestar-testnet", GetLodestarNetworkComposeConfig},
+	// Arbitrum and Base take extra arguments (L1 endpoints, a shared JWT
+	// secret) this table's func(string) shape has no room for, so they are
+	// wrapped in closures that supply fixed test values - the point here is
+	// registry consistency (ContainerName, Command, ports), not exercising
+	// every L1Endpoints/JWT combination, which arbitrum_test.go/base_test.go
+	// cover directly.
+	{"arbitrum", func(network string) (NetworkConfig, error) {
+		return GetArbitrumNetworkComposeConfig(network, testL1Endpoints)
+	}},
+	{"arbitrum-testnet", func(network string) (NetworkConfig, error) {
+		return GetArbitrumNetworkComposeConfig(network, testL1Endpoints)
+	}},
+	{"base", func(network string) (NetworkConfig, error) {
+		return GetBaseExecutionNetworkComposeConfig(network, testJWTSecret)
+	}},
+	{"base-testnet", func(network string) (NetworkConfig, error) {
+		return GetBaseExecutionNetworkComposeConfig(network, testJWTSecret)
+	}},
+	{"base-consensus", func(network string) (NetworkConfig, error) {
+		return GetBaseConsensusNetworkComposeConfig(network, testJWTSecret, testL1Endpoints)
+	}},
+	{"base-consensus-testnet", func(network string) (NetworkConfig, error) {
+		return GetBaseConsensusNetworkComposeConfig(network, testJWTSecret, testL1Endpoints)
+	}},
 }
+
+// testL1Endpoints and testJWTSecret are fixed stand-ins for the extra
+// arguments ResolveL1Endpoints/BaseJWTSecret would normally supply, used only
+// by the registry-consistency table above.
+var testL1Endpoints = L1Endpoints{ExecutionRPCURL: "http://l1-execution:8545", BeaconURL: "http://l1-beacon:5052"}
+
+const testJWTSecret = "test-jwt-secret"
 
 // consensusClients are mutually exclusive alternatives for the same
 // architectural slot (exactly one runs at a time, paired with whichever
