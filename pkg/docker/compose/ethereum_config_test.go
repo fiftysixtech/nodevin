@@ -414,3 +414,84 @@ func TestNimbusTestnetSyncsFromTheSepoliaCheckpoint(t *testing.T) {
 		t.Errorf("command %q must run trustedNodeSync on sepolia, never mainnet", got)
 	}
 }
+
+// The exact flag per client, each read from the pinned image's own --help.
+func TestBlobServingFlags(t *testing.T) {
+	cases := []struct {
+		client, mode, want string
+	}{
+		{"lighthouse", "semi", "--semi-supernode"},
+		{"lighthouse", "full", "--supernode"},
+		{"prysm", "semi", "--semi-supernode"},
+		{"prysm", "full", "--supernode"},
+		{"lodestar", "semi", "--semiSupernode"},
+		{"lodestar", "full", "--supernode"},
+		{"nimbus", "semi", "--light-supernode"},
+		{"nimbus", "full", "--peerdas-supernode"},
+		{"teku", "full", "--p2p-subscribe-all-custody-subnets-enabled=true"},
+	}
+	for _, c := range cases {
+		got, err := blobServingFlags(c.client, c.mode)
+		if err != nil || got != c.want {
+			t.Errorf("blobServingFlags(%s, %s) = (%q, %v), want %q", c.client, c.mode, got, err, c.want)
+		}
+	}
+
+	if _, err := blobServingFlags("teku", "semi"); err == nil || !strings.Contains(err.Error(), "no half-custody mode") {
+		t.Errorf("teku semi must be refused rather than silently becoming full, got %v", err)
+	}
+	if _, err := blobServingFlags("grandine", "semi"); err == nil {
+		t.Error("an unknown client must be an error")
+	}
+}
+
+func TestResolveBlobServing(t *testing.T) {
+	cases := []struct {
+		name    string
+		client  string
+		mode    string
+		want    string
+		wantErr string
+	}{
+		{"off by default", "lighthouse", "", "", ""},
+		{"semi", "lighthouse", "semi", "semi", ""},
+		{"full", "teku", "full", "full", ""},
+		{"surrounding space is ignored", "prysm", " semi ", "semi", ""},
+		{"an unknown mode", "lighthouse", "half", "", "invalid --blob-serving"},
+		{"needs a consensus client", "none", "semi", "", "cannot be used with --consensus-client=none"},
+		{"teku has no semi mode", "teku", "semi", "", "no half-custody mode"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			viper.Set("blob-serving", c.mode)
+			t.Cleanup(func() { viper.Set("blob-serving", "") })
+
+			got, err := ResolveBlobServing(c.client)
+			if c.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), c.wantErr) {
+					t.Fatalf("error = %v, want one containing %q", err, c.wantErr)
+				}
+				return
+			}
+			if err != nil || got != c.want {
+				t.Errorf("got (%q, %v), want (%q, nil)", got, err, c.want)
+			}
+		})
+	}
+}
+
+func TestWithBlobServing(t *testing.T) {
+	if got, err := WithBlobServing("lighthouse", "", "BASE"); err != nil || got != "BASE" {
+		t.Errorf("off must leave the command alone, got (%q, %v)", got, err)
+	}
+	if got, err := WithBlobServing("lighthouse", "semi", "BASE"); err != nil || got != "BASE --semi-supernode" {
+		t.Errorf("got (%q, %v)", got, err)
+	}
+
+	// Nimbus's checkpoint wrapper embeds the command, so the flag must survive being wrapped.
+	base, _ := WithBlobServing("nimbus", "semi", "nimbus_beacon_node --el=http://reth:8551 --jwt-secret=/x")
+	wrapped, err := WithCheckpointSync("nimbus", "mainnet", "https://cp.example.org", base)
+	if err != nil || !strings.HasSuffix(wrapped, "--light-supernode'") {
+		t.Errorf("the flag must land on the nimbus_beacon_node command inside the wrapper, got (%q, %v)", wrapped, err)
+	}
+}

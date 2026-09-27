@@ -215,3 +215,37 @@ func TestTestnetConsensusWarning(t *testing.T) {
 		}
 	}
 }
+
+func TestBlobServingWarning(t *testing.T) {
+	if got := blobServingWarning("", "ethereum"); got != "" {
+		t.Errorf("off must not warn, got %q", got)
+	}
+	if got := blobServingWarning("semi", "ethereum"); !strings.HasPrefix(got, "WARNING:") || !strings.Contains(got, "8-16 TB/month") {
+		t.Errorf("mainnet semi warning = %q, want a bandwidth warning", got)
+	}
+	if got := blobServingWarning("full", "ethereum"); !strings.Contains(got, "over 16 TB/month") {
+		t.Errorf("mainnet full warning = %q, want the larger figure", got)
+	}
+	if got := blobServingWarning("semi", "ethereum-testnet"); strings.HasPrefix(got, "WARNING:") {
+		t.Errorf("Sepolia's cost is small, so it should not be a warning, got %q", got)
+	}
+}
+
+func TestCreateEthereumComposeFile_BlobServingNeedsAConsensusClient(t *testing.T) {
+	setup(t, "", map[string]interface{}{"consensus-client": "none", "blob-serving": "semi"})
+
+	if _, err := CreateEthereumComposeFile(t.TempDir()); err == nil || !strings.Contains(err.Error(), "--blob-serving needs a consensus client") {
+		t.Fatalf("error = %v, want one explaining --blob-serving needs a consensus client", err)
+	}
+}
+
+func TestBlobServingNotice(t *testing.T) {
+	if got := blobServingNotice("nimbus", "semi"); !strings.Contains(got, "Nimbus") || !strings.Contains(got, "lighthouse") {
+		t.Errorf("nimbus semi notice = %q, want one naming Nimbus and the alternatives", got)
+	}
+	for _, c := range [][2]string{{"nimbus", "full"}, {"nimbus", ""}, {"lighthouse", "semi"}, {"prysm", "semi"}, {"teku", "full"}, {"lodestar", "semi"}} {
+		if got := blobServingNotice(c[0], c[1]); got != "" {
+			t.Errorf("notice for %s/%s = %q, want none", c[0], c[1], got)
+		}
+	}
+}

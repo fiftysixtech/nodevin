@@ -81,6 +81,9 @@ func startNode(args []string) error {
 		if _, err := compose.ResolveCheckpointSyncURL(consensusClient); err != nil {
 			return err
 		}
+		if _, err := compose.ResolveBlobServing(consensusClient); err != nil {
+			return err
+		}
 	}
 
 	logger.LogInfo("Starting blockchain node for network: " + network)
