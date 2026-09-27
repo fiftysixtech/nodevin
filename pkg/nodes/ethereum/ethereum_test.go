@@ -238,3 +238,14 @@ func TestCreateEthereumComposeFile_BlobServingNeedsAConsensusClient(t *testing.T
 		t.Fatalf("error = %v, want one explaining --blob-serving needs a consensus client", err)
 	}
 }
+
+func TestBlobServingNotice(t *testing.T) {
+	if got := blobServingNotice("nimbus", "semi"); !strings.Contains(got, "Nimbus") || !strings.Contains(got, "lighthouse") {
+		t.Errorf("nimbus semi notice = %q, want one naming Nimbus and the alternatives", got)
+	}
+	for _, c := range [][2]string{{"nimbus", "full"}, {"nimbus", ""}, {"lighthouse", "semi"}, {"prysm", "semi"}, {"teku", "full"}, {"lodestar", "semi"}} {
+		if got := blobServingNotice(c[0], c[1]); got != "" {
+			t.Errorf("notice for %s/%s = %q, want none", c[0], c[1], got)
+		}
+	}
+}

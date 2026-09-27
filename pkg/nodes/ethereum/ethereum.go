@@ -97,6 +97,17 @@ func testnetConsensusWarning(consensusClient string) string {
 	return ""
 }
 
+// blobServingNotice returns a heads-up about a client/mode combination that did
+// not work in testing, or "" if there is none. Nimbus in semi mode served no
+// blobs in a 30-minute Linux run on Sepolia, but it had only 0-2 peers, so it
+// is unresolved whether Nimbus cannot serve them or simply lacked peers.
+func blobServingNotice(consensusClient, mode string) string {
+	if consensusClient == "nimbus" && mode == "semi" {
+		return "NOTE: Nimbus in semi mode did not serve blobs in testing (it had very few peers, so it is unresolved why). For blob serving, prefer lighthouse or prysm, or teku with --blob-serving=full."
+	}
+	return ""
+}
+
 // blobServingWarning describes what --blob-serving costs; "" when it is off.
 // The mainnet figure is ethPandaOps' estimate for a semi-supernode after
 // Fusaka (roughly half of a full supernode's 50-100 Mb/s sustained), not
@@ -167,6 +178,9 @@ func CreateEthereumComposeFile(cwd string) (string, error) {
 	}
 	if warning := blobServingWarning(blobServing, network); warning != "" {
 		logger.LogInfo(warning)
+	}
+	if notice := blobServingNotice(consensusClient, blobServing); notice != "" {
+		logger.LogInfo(notice)
 	}
 
 	if consensusSuffix != "" {

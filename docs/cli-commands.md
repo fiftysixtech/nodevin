@@ -164,6 +164,30 @@ Nodevin is a command-line interface (CLI) that simplifies the setup, management,
 *Description*: URL of a checkpoint sync provider the consensus client starts from. **Required** unless `--consensus-client=none`: a consensus client cannot sync mainnet from genesis (Lighthouse and Teku refuse to try). Nodevin has no default endpoint on purpose; choosing whose checkpoint to trust is your decision. See the [public endpoint list](https://eth-clients.github.io/checkpoint-sync-endpoints/). It must be an `http(s)` URL. Pass it on each `start`; once a client has a database it resumes from that instead (checked with Nimbus and Lodestar).
 *Usage*: `--checkpoint-sync-url=<url>`
 
+- **`--blob-serving`**
+
+*Description*: Makes the consensus client keep and serve the blob data that L2 nodes (Arbitrum, Base) read from it. Since the Fusaka upgrade (PeerDAS) a default beacon node custodies only a few of the 128 "data columns" and cannot serve whole blobs; a node that custodies half of them can reconstruct every blob (`semi`), and one that custodies all of them serves them directly (`full`, at a higher bandwidth cost). A bare `--blob-serving` means `semi`. It needs a consensus client, so it cannot be combined with `--consensus-client=none`.
+*Usage*: `--blob-serving` or `--blob-serving=full`
+
+| Client | `semi` | `full` |
+| --- | --- | --- |
+| lighthouse, prysm | `--semi-supernode` | `--supernode` |
+| lodestar | `--semiSupernode` | `--supernode` |
+| nimbus | `--light-supernode` | `--peerdas-supernode` |
+| teku | not available (refused) | `--p2p-subscribe-all-custody-subnets-enabled` |
+
+Teku has no half-custody mode, so `--blob-serving` with Teku must be `--blob-serving=full`; nodevin refuses `semi` rather than quietly using the far more bandwidth-hungry `full`. The beacon REST API that serves the blobs stays published on `127.0.0.1` only.
+
+*What was verified*, on Sepolia (nothing here was run on mainnet, and no Nitro or Base node has read from it yet):
+- The consensus client reports `custody_group_count` 4 by default, 64 with `semi` (lighthouse, prysm, nimbus, lodestar) and 128 with `full` (lighthouse, teku), on real stacks.
+- On Linux, with a fresh checkpoint sync and 30 minutes of running, a default Lighthouse served none of the 20 most recent slots' blobs, while Lighthouse `full`, Prysm `semi` and Teku `full` served 19–20 of 20.
+- Nimbus `semi` served none, but it only ever had 0–2 peers, so it is unresolved whether Nimbus cannot do it or just lacked peers. For now prefer Lighthouse or Prysm, or Teku with `full`; `start` prints a notice for Nimbus `semi`.
+- Lighthouse `semi` could not be measured: the test runner ran out of disk twice at the same point, about 35 minutes in. Whether Lighthouse `semi` itself is responsible is being investigated.
+
+*Start early.* After a fresh checkpoint sync a blob-serving node only has blobs from about its checkpoint onward: in 30 minutes none of the serving nodes had any block a day back. How long it takes to backfill the roughly 18-day blob window was not measured. An L2 node started from a snapshot needs blobs from the snapshot's date forward, so start the L1 consensus client well ahead of it, or use a rented blob endpoint in the meantime.
+
+*Cost.* On mainnet a semi-supernode is estimated by ethPandaOps at roughly half of a full supernode's 50–100 Mb/s, about 8–16 TB of bandwidth per month; this is an estimate, not something measured here. `start` prints a warning on mainnet.
+
 - **`--consensus-image`** / **`--consensus-version`**
 
 *Description*: Docker image and tag for the consensus client.
