@@ -87,6 +87,8 @@ var networkBuilders = []struct {
 	{"base-consensus-testnet", func(network string) (NetworkConfig, error) {
 		return GetBaseConsensusNetworkComposeConfig(network, testJWTSecret, testL1Endpoints)
 	}},
+	{"bsc", GetBscNetworkComposeConfig},
+	{"bsc-testnet", GetBscNetworkComposeConfig},
 }
 
 // testL1Endpoints and testJWTSecret are fixed stand-ins for the extra

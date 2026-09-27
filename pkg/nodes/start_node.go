@@ -30,6 +30,7 @@ import (
 	"github.com/fiftysixcrypto/nodevin/pkg/nodes/arbitrum"
 	"github.com/fiftysixcrypto/nodevin/pkg/nodes/base"
 	"github.com/fiftysixcrypto/nodevin/pkg/nodes/bitcoin"
+	"github.com/fiftysixcrypto/nodevin/pkg/nodes/bsc"
 	"github.com/fiftysixcrypto/nodevin/pkg/nodes/dogecoin"
 	"github.com/fiftysixcrypto/nodevin/pkg/nodes/ethereum"
 	ethereum_classic "github.com/fiftysixcrypto/nodevin/pkg/nodes/ethereum-classic"
@@ -249,6 +250,8 @@ func createComposeFileForNetwork(network string, cwd string) (string, error) {
 		return arbitrum.CreateArbitrumComposeFile(cwd)
 	case "base":
 		return base.CreateBaseComposeFile(cwd)
+	case "bsc":
+		return bsc.CreateBscComposeFile(cwd)
 	default:
 		return "", fmt.Errorf("unsupported network: %s", network)
 	}

@@ -410,6 +410,31 @@ var networkInfoMap = map[string]NetworkInfo{
 		StartMessage:     "\"Testing is the lifeblood of innovation and security.\"",
 		CommandSupported: false,
 	},
+	// BSC is a single monolithic process (a geth fork with Parlia consensus
+	// built in) - no execution/consensus split, no L1 dependency, unlike
+	// Arbitrum/Base above. Network selection is an environment variable
+	// (NETWORK), not a CLI flag - there is no built-in chain config to select
+	// with a plain flag the way Ethereum mainnet/Sepolia have.
+	"bsc": {
+		ContainerName:    "bsc",
+		DockerHubImage:   "bsc",
+		RPCPort:          8565,
+		SnapshotCID:      "",
+		DataSize:         0,
+		SnapshotSize:     0,
+		StartMessage:     "\"BNB Smart Chain: fast, low-cost, EVM compatible.\"",
+		CommandSupported: true,
+	},
+	"bsc-testnet": {
+		ContainerName:    "bsc-testnet",
+		DockerHubImage:   "bsc",
+		RPCPort:          8567,
+		SnapshotCID:      "",
+		DataSize:         0,
+		SnapshotSize:     0,
+		StartMessage:     "\"Testing is the lifeblood of innovation and security.\"",
+		CommandSupported: false,
+	},
 }
 
 func NetworkContainerMap() map[string]string {
