@@ -102,6 +102,11 @@ func init() {
 	rootCmd.PersistentFlags().String("l1-execution-rpc-url", "", "Ethereum L1 execution JSON-RPC endpoint for an L2 node (Arbitrum, Base) -- required together with --l1-beacon-url to use an external L1; leave both unset to auto-attach to nodevin's own running Ethereum node")
 	rootCmd.PersistentFlags().String("l1-beacon-url", "", "Ethereum L1 consensus (beacon) REST API endpoint for an L2 node (Arbitrum, Base), used to read blob data -- required together with --l1-execution-rpc-url to use an external L1; leave both unset to auto-attach to nodevin's own running Ethereum node")
 
+	// Arbitrum snapshot-init flags
+	rootCmd.PersistentFlags().String("snapshot", "", "(arbitrum only) Initialise a fresh datadir from the latest official Arbitrum snapshot before starting: \"pruned\" (hash-scheme, default) or \"full-path\" (newer path-scheme database -- see docs/cli-commands.md before using it). A bare --snapshot means pruned. No effect once the datadir is already initialised.")
+	rootCmd.PersistentFlags().Lookup("snapshot").NoOptDefVal = "pruned"
+	rootCmd.PersistentFlags().String("snapshot-download-path", "", "(arbitrum only) Where the snapshot archive is downloaded and verified before extraction -- needs free space comparable to the snapshot itself, separate from the datadir it extracts into (default: <nodevin data dir>/.snapshot-staging)")
+
 	// IPFS specific flags
 	rootCmd.PersistentFlags().Bool("ipfs-cluster", false, "Run ipfs-cluster software ord alongside the IPFS node")
 	rootCmd.PersistentFlags().String("ipfs-cluster-image", "fiftysix/ipfs-cluster", "Docker image to use for ipfs-cluster (image name -- ex: fiftysix/ipfs-cluster)")
@@ -165,6 +170,8 @@ func init() {
 	viper.BindPFlag("consensus-version", rootCmd.PersistentFlags().Lookup("consensus-version"))
 	viper.BindPFlag("l1-execution-rpc-url", rootCmd.PersistentFlags().Lookup("l1-execution-rpc-url"))
 	viper.BindPFlag("l1-beacon-url", rootCmd.PersistentFlags().Lookup("l1-beacon-url"))
+	viper.BindPFlag("snapshot", rootCmd.PersistentFlags().Lookup("snapshot"))
+	viper.BindPFlag("snapshot-download-path", rootCmd.PersistentFlags().Lookup("snapshot-download-path"))
 
 	// IPFS specific flags
 	viper.BindPFlag("ipfs-cluster", rootCmd.PersistentFlags().Lookup("ipfs-cluster"))
