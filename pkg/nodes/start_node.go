@@ -96,6 +96,11 @@ func startNode(args []string) error {
 			return err
 		}
 	}
+	if network == "arbitrum" {
+		if _, err := compose.ResolveArbitrumSnapshotKind(); err != nil {
+			return err
+		}
+	}
 
 	logger.LogInfo("Starting blockchain node for network: " + network)
 
@@ -118,6 +123,17 @@ func startNode(args []string) error {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get current working directory: %w", err)
+	}
+
+	// Arbitrum snapshot init (phase 1) runs here, before the normal compose
+	// file (phase 2) is generated: it uses the same image/version just
+	// pulled above, and must complete (or be skipped, already initialised)
+	// before phase 2 starts the node for real. A no-op unless --snapshot was
+	// given - see arbitrum.EnsureSnapshotInitialised.
+	if network == "arbitrum" {
+		if err := arbitrum.EnsureSnapshotInitialised(cwd); err != nil {
+			return fmt.Errorf("arbitrum snapshot init failed: %w", err)
+		}
 	}
 
 	// Create env file for chain compose

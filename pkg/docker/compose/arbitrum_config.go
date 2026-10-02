@@ -41,6 +41,51 @@ func arbitrumChain(network string) arbitrumChainIDs {
 	return arbitrumChainIDs{chainID: "42161", parentChainID: "1"} // Arbitrum One / Ethereum mainnet
 }
 
+// ArbitrumChainIDs exports arbitrumChain's result for the snapshot-init flow
+// (pkg/nodes/arbitrum), which needs the same --chain.id/--parent-chain.id
+// Nitro's normal run command uses - confirmed empirically that Nitro reads
+// the parent chain during init, before any snapshot download begins, so
+// phase 1 cannot skip these.
+type ArbitrumChainIDs struct {
+	ChainID       string
+	ParentChainID string
+}
+
+func ResolveArbitrumChainIDs(network string) ArbitrumChainIDs {
+	ids := arbitrumChain(network)
+	return ArbitrumChainIDs{ChainID: ids.chainID, ParentChainID: ids.parentChainID}
+}
+
+// ArbitrumSnapshotChainName returns the on-disk/snapshot chain name Nitro and
+// snapshot.arbitrum.foundation both use - confirmed by reading a real running
+// node's own log line (database=.../sepolia-rollup/nitro/l2chaindata) and
+// cross-checked against the real metadata.json of both networks' published
+// snapshots ("chain_name": "arb1" / "sepolia-rollup"). This is NOT the same
+// string as --chain.id (a number) or the registry network key.
+func ArbitrumSnapshotChainName(network string) string {
+	if network == "arbitrum-testnet" {
+		return "sepolia-rollup"
+	}
+	return "arb1"
+}
+
+// ArbitrumLocalChainDataPath returns the host directory mounted at
+// /node/nitro/data for network - the single source of truth both
+// GetArbitrumNetworkComposeConfig (phase 2, the normal run) and the
+// snapshot-init flow (phase 1, pkg/nodes/arbitrum) use, so the two always
+// agree on exactly where Nitro's data lives.
+func ArbitrumLocalChainDataPath(network string) (string, error) {
+	nodevinDataDir, err := utils.GetNodevinDataDir()
+	if err != nil {
+		return "", err
+	}
+	containerName, ok := utils.GetDefaultLocalMappedContainerName(network)
+	if !ok {
+		return "", fmt.Errorf("unknown network: %s", network)
+	}
+	return filepath.Join(nodevinDataDir, containerName, "nitro"), nil
+}
+
 // GetArbitrumNetworkComposeConfig builds the compose config for fiftysix/nitro
 // on "arbitrum" (mainnet) or "arbitrum-testnet" (Arbitrum Sepolia). Unlike
 // every Ethereum client, Nitro's entrypoint execs the binary directly with
@@ -59,7 +104,10 @@ func GetArbitrumNetworkComposeConfig(network string, l1 L1Endpoints) (NetworkCon
 	}
 
 	localPath := filepath.Join(nodevinDataDir, containerName)
-	localChainDataPath := filepath.Join(localPath, "nitro")
+	localChainDataPath, err := ArbitrumLocalChainDataPath(network)
+	if err != nil {
+		return NetworkConfig{}, err
+	}
 
 	chain := arbitrumChain(network)
 	command := fmt.Sprintf(

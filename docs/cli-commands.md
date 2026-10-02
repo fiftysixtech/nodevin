@@ -247,7 +247,36 @@ nodevin start base --testnet \
   --l1-beacon-url=https://beacon-sepolia.example.com
 ```
 
-*Arbitrum*: `nodevin start arbitrum` runs `fiftysix/nitro`, a single monolithic process — no execution/consensus split, no JWT of its own. `--chain.id`/`--parent-chain.id` are set automatically (`42161`/`1` on mainnet, `421614`/`11155111` with `--testnet`). JSON-RPC publishes on `127.0.0.1:8552`, WebSocket on `127.0.0.1:8553`, and the sequencer feed (relayed to other nodes, not admin-level) on `9642` — Sepolia uses `8556`/`8557`/`9643` so both can run at once. Not yet snapshot-synced by nodevin; see [node-images' Arbitrum docs](https://github.com/fiftysixtech/node-images/blob/main/docs/arbitrum.md) for the manual `--init.latest pruned --init.then-quit` flow.
+*Arbitrum*: `nodevin start arbitrum` runs `fiftysix/nitro`, a single monolithic process — no execution/consensus split, no JWT of its own. `--chain.id`/`--parent-chain.id` are set automatically (`42161`/`1` on mainnet, `421614`/`11155111` with `--testnet`). JSON-RPC publishes on `127.0.0.1:8552`, WebSocket on `127.0.0.1:8553`, and the sequencer feed (relayed to other nodes, not admin-level) on `9642` — Sepolia uses `8556`/`8557`/`9643` so both can run at once.
+
+- **`--snapshot`**
+
+*Description*: Initialises a fresh datadir from the latest official Arbitrum snapshot ([snapshot.arbitrum.foundation](https://snapshot.arbitrum.foundation)) before starting, instead of syncing from genesis (impractical on mainnet). `nodevin` drives Nitro's own snapshot download/verify/extract flow rather than reimplementing it — it never downloads or extracts anything itself.
+*Options*: `pruned` (hash-scheme database — recommended), `full-path` (newer path-scheme database — see the warning below)
+*Default behavior when unset*: unchanged — syncs from genesis, exactly as before this flag existed.
+*Usage*: `--snapshot` (bare, means `pruned`) or `--snapshot=full-path`
+
+This runs as a two-phase start the first time: phase 1 runs `fiftysix/nitro` once, in the foreground, with `--init.latest=<kind> --init.download-path=<staging> --init.then-quit` (plus the same `--chain.id`/`--parent-chain.id`/L1 flags phase 2 uses — Nitro reads the parent chain during init, before any snapshot download begins); phase 2 is the normal, unchanged node start. Nitro's own output streams live — this can take 12–24 hours on mainnet.
+
+**`--snapshot` never re-initialises.** If the datadir already has a real chain database (Nitro has created `<datadir>/<chain>/nitro/l2chaindata`), phase 1 is skipped with an informational log and phase 2 starts normally — `--snapshot` against an already-synced node is a no-op, never a wipe.
+
+**A pre-flight disk check runs before phase 1 starts.** `nodevin` reads the snapshot's real size from its published `metadata.json` and refuses — before downloading anything — if either the download path or the datadir doesn't have comparable free space. It will not start a multi-hundred-GB-to-multi-TB download that cannot finish.
+
+**If phase 1 fails or is interrupted, nothing is deleted.** The downloaded archive is left exactly where it was; re-running the same command resumes the download (Nitro's own behavior) instead of restarting it from zero.
+
+**`--snapshot=full-path` is opt-in for a reason.** Its snapshot uses Nitro's newer path-scheme database (confirmed from the snapshot's own `metadata.json`: `"state_scheme": "path"`, vs. `"hash"` for `pruned`) — [OffchainLabs/nitro#4746](https://github.com/OffchainLabs/nitro/issues/4746) reports a path-scheme snapshot bootstrap that can stall silently. It also requires a Nitro version that supports path-scheme init at all — confirmed the currently-pinned `fiftysix/nitro` tag does not yet (`--init.latest=full-path` is refused with "invalid value for latest option", since path-scheme support landed in a newer upstream release than the one pinned here). Prefer the default (`pruned`) unless you specifically need `full-path` and have confirmed your pinned Nitro version supports it.
+
+- **`--snapshot-download-path`**
+
+*Description*: Where the snapshot archive is downloaded and verified before extraction. Needs free space comparable to the snapshot itself (multiple TB for Arbitrum One), separate from the datadir it extracts into — the two coexist on disk during extraction. Point this at its own large volume for a real mainnet sync.
+*Default*: `<nodevin data dir>/.snapshot-staging` (shared across runs/networks, not per-network, so one override covers both mainnet and Sepolia)
+*Usage*: `--snapshot-download-path=/mnt/big-disk/arbitrum-snapshot-staging`
+
+*What was verified*: the disk pre-flight check, real — it fetched Arbitrum Sepolia's actual published snapshot metadata (1.60 TB at the time) and correctly refused on a machine without that much free space, before attempting any download. Skipping an already-initialised datadir was verified with a real populated-looking datadir (the data survived untouched). Resolving L1 endpoints before phase 1 — both auto-attach and an explicit external L1 — was verified the same way `--l1-execution-rpc-url`/`--l1-beacon-url` are verified below. `nodevin start arbitrum` with no `--snapshot` at all was re-verified unchanged.
+
+**Placement and resume were verified with a real partial download**, against the real Sepolia pruned snapshot: `pruned.tar.part0000` landed exactly at `--init.download-path` as expected, was killed partway through at ~40.6 MB, and restarting the identical command resumed from that same file (it was at ~41.0 MB within 6 seconds of restart and kept climbing at the same rate as before — not reset to 0, which a cold restart would have been). Confirms both that staging is correctly placed for a future full sync and that nothing on nodevin's side needs to do anything for resume to work.
+
+**Not verified**: a full snapshot download, extraction, and resulting real sync (`eth_blockNumber` tracking a public endpoint) — this needs multiple TB of free disk and 12+ hours, neither available in the environment this was built in.
 
 *Base*: `nodevin start base` runs `fiftysix/base-reth` (execution) and `fiftysix/base-consensus` (rollup/consensus) together, mirroring Ethereum's execution/consensus pairing — but unlike every Ethereum client here, the Engine API JWT between them is a **shared value**, not a shared file: nodevin generates one 32-byte secret per stack on first use, persists it (`~/.nodevin/data/base[-testnet]/jwt.hex`), and gives the same value to both containers as `BASE_NODE_L2_ENGINE_AUTH_RAW`, each of which writes its own local copy on startup. base-reth's JSON-RPC publishes on `127.0.0.1:8558` (`8563` testnet), base-consensus's on `127.0.0.1:9545` (`9546` testnet). Not yet snapshot-synced by nodevin; see [node-images' Base docs](https://github.com/fiftysixtech/node-images/blob/main/docs/base.md).
 
