@@ -115,7 +115,7 @@ func EnsureSnapshotInitialised(cwd string) error {
 	}
 
 	if kind == "full-path" {
-		logger.LogInfo("WARNING: --snapshot=full-path uses Nitro's newer path-scheme database. OffchainLabs/nitro issue #4746 reports a path-scheme snapshot bootstrap that can stall silently. It also requires a Nitro version that supports path-scheme init - not yet true of every pinned fiftysix/nitro tag. Prefer the default (pruned, hash-scheme) unless you specifically need full-path; see docs/cli-commands.md.")
+		logger.LogInfo("WARNING: --snapshot=full-path does not work yet: Nitro's --init.latest accepts only archive, pruned and genesis (confirmed on 3.11.4 and 3.12.1), so Nitro will refuse it right after starting. Its snapshot uses the path-scheme database, which OffchainLabs/nitro issue #4746 reports can stall silently. Use the default (pruned); see docs/cli-commands.md.")
 	}
 
 	// Requirement 7: Nitro reads the parent chain during init, before any
