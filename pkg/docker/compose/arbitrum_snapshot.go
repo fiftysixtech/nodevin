@@ -43,8 +43,9 @@ var httpGet = http.Get
 
 // ResolveArbitrumSnapshotKind returns "" (no snapshot init requested) when
 // --snapshot is unset, or the validated kind otherwise: "pruned" (the
-// default - hash-scheme database) or "full-path" (opt-in - see the warning
-// on ArbitrumSnapshotMetadata.StateScheme).
+// default - hash-scheme database) or "full-path" (opt-in, and not yet usable:
+// Nitro's --init.latest refuses it - see the warning on
+// ArbitrumSnapshotMetadata.StateScheme and docs/cli-commands.md).
 func ResolveArbitrumSnapshotKind() (string, error) {
 	kind := strings.TrimSpace(viper.GetString("snapshot"))
 	if kind == "" {
